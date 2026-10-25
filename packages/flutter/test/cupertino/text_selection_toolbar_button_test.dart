@@ -9,7 +9,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('can press', (WidgetTester tester) async {
-    bool pressed = false;
+    var pressed = false;
     await tester.pumpWidget(
       CupertinoApp(
         home: Center(
@@ -29,46 +29,74 @@ void main() {
     expect(pressed, true);
   });
 
-  testWidgets('pressedOpacity defaults to 0.1', (WidgetTester tester) async {
+  testWidgets('background darkens when pressed', (WidgetTester tester) async {
     await tester.pumpWidget(
       CupertinoApp(
         home: Center(
-          child: CupertinoTextSelectionToolbarButton(
-            child: const Text('Tap me'),
-            onPressed: () { },
-          ),
+          child: CupertinoTextSelectionToolbarButton(child: const Text('Tap me'), onPressed: () {}),
         ),
       ),
     );
 
-    // Original at full opacity.
-    FadeTransition opacity = tester.widget(find.descendant(
-      of: find.byType(CupertinoTextSelectionToolbarButton),
-      matching: find.byType(FadeTransition),
-    ));
-    expect(opacity.opacity.value, 1.0);
+    // Original with transparent background.
+    DecoratedBox decoratedBox = tester.widget(
+      find.descendant(of: find.byType(CupertinoButton), matching: find.byType(DecoratedBox)),
+    );
+    var decoration = decoratedBox.decoration as ShapeDecoration;
+    expect(decoration.color, CupertinoColors.transparent);
 
     // Make a "down" gesture on the button.
     final Offset center = tester.getCenter(find.byType(CupertinoTextSelectionToolbarButton));
     final TestGesture gesture = await tester.startGesture(center);
     await tester.pumpAndSettle();
 
-    // Opacity reduces during the down gesture.
-    opacity = tester.widget(find.descendant(
-      of: find.byType(CupertinoTextSelectionToolbarButton),
-      matching: find.byType(FadeTransition),
-    ));
-    expect(opacity.opacity.value, 0.7);
+    // When pressed, the background darkens.
+    decoratedBox = tester.widget(
+      find.descendant(
+        of: find.byType(CupertinoTextSelectionToolbarButton),
+        matching: find.byType(DecoratedBox),
+      ),
+    );
+    decoration = decoratedBox.decoration as ShapeDecoration;
+    expect(decoration.color!.value, const Color(0x10000000).value);
 
     // Release the down gesture.
     await gesture.up();
     await tester.pumpAndSettle();
 
-    // Opacity is back to normal.
-    opacity = tester.widget(find.descendant(
-      of: find.byType(CupertinoTextSelectionToolbarButton),
-      matching: find.byType(FadeTransition),
-    ));
-    expect(opacity.opacity.value, 1.0);
+    // Color is back to transparent.
+    decoratedBox = tester.widget(
+      find.descendant(
+        of: find.byType(CupertinoTextSelectionToolbarButton),
+        matching: find.byType(DecoratedBox),
+      ),
+    );
+    decoration = decoratedBox.decoration as ShapeDecoration;
+    expect(decoration.color, CupertinoColors.transparent);
+  });
+
+  testWidgets('passing null to onPressed disables the button', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const CupertinoApp(
+        home: Center(child: CupertinoTextSelectionToolbarButton(child: Text('Tap me'))),
+      ),
+    );
+
+    expect(find.byType(CupertinoButton), findsOneWidget);
+    final CupertinoButton button = tester.widget(find.byType(CupertinoButton));
+    expect(button.enabled, isFalse);
+  });
+
+  testWidgets('CupertinoTextSelectionToolbarButton does not crash at zero area', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const CupertinoApp(
+        home: Center(
+          child: SizedBox.shrink(child: CupertinoTextSelectionToolbarButton(child: Text('X'))),
+        ),
+      ),
+    );
+    expect(tester.getSize(find.byType(CupertinoTextSelectionToolbarButton)), Size.zero);
   });
 }

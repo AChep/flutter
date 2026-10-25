@@ -5,7 +5,7 @@
 import 'dart:ui';
 
 import 'package:fake_async/fake_async.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -19,14 +19,14 @@ void main() {
 
       // Simulates the engine completing a frame render to trigger the
       // appropriate callback setting [WidgetBinding.firstFrameRasterized].
-      binding.window.onReportTimings!(<FrameTiming>[]);
+      binding.platformDispatcher.onReportTimings!(<FrameTiming>[]);
       expect(binding.firstFrameRasterized, isFalse);
 
       binding.allowFirstFrame();
       fakeAsync.flushTimers();
 
       // Simulates the engine again.
-      binding.window.onReportTimings!(<FrameTiming>[]);
+      binding.platformDispatcher.onReportTimings!(<FrameTiming>[]);
       expect(binding.firstFrameRasterized, isTrue);
     });
   });

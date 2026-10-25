@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_gallery/demo_lists.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,9 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// Demo names are formatted as 'DEMO_NAME@DEMO_CATEGORY' (see
 /// `demo_lists.dart` for more examples).
 final List<String> kSkippedDemos = <String>[
-  // The CI uses Chromium, which lacks the video codecs to run this demo.
-  if (kIsWeb)
-    'Video@Media',
+  // This demo is flaky on CI due to hitting the network.
+  // See: https://github.com/flutter/flutter/issues/100497
+  'Video@Media',
 ];
 
 /// Scrolls each demo menu item into view, launches it, then returns to the
@@ -23,9 +22,10 @@ Future<void> runDemos(List<String> demos, WidgetController controller) async {
   final Finder demoList = find.byType(Scrollable);
   String? currentDemoCategory;
 
-  for (final String demo in demos) {
-    if (kSkippedDemos.contains(demo))
+  for (final demo in demos) {
+    if (kSkippedDemos.contains(demo)) {
       continue;
+    }
 
     final String demoName = demo.substring(0, demo.indexOf('@'));
     final String demoCategory = demo.substring(demo.indexOf('@') + 1);
@@ -45,7 +45,7 @@ Future<void> runDemos(List<String> demos, WidgetController controller) async {
       await controller.pumpAndSettle();
       // Scroll back to the top
       await controller.drag(demoList, const Offset(0.0, 10000.0));
-      await controller.pumpAndSettle(const Duration(milliseconds: 100));
+      await controller.pumpAndSettle();
     }
     currentDemoCategory = demoCategory;
 
@@ -57,7 +57,7 @@ Future<void> runDemos(List<String> demos, WidgetController controller) async {
       return controller.tap(backButton);
     }
 
-    for (int i = 0; i < 2; i += 1) {
+    for (var i = 0; i < 2; i += 1) {
       final Finder demoItem = find.text(demoName);
       await controller.scrollUntilVisible(demoItem, 48.0);
       await controller.pumpAndSettle();
@@ -73,8 +73,8 @@ Future<void> runDemos(List<String> demos, WidgetController controller) async {
 
       if (kUnsynchronizedDemos.contains(demo)) {
         // These tests have animation, pumpAndSettle cannot be used.
-        // This time is questionable. 400ms is the tested reasonable result.
-        await controller.pump(const Duration(milliseconds: 400));
+        // This time is questionable. 600ms is the tested reasonable result.
+        await controller.pump(const Duration(milliseconds: 600));
         await controller.pump();
         await pageBack();
       } else {

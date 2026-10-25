@@ -2,12 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// TODO(gspencergoog): Remove this tag once this test's state leaks/test
-// dependencies have been fixed.
-// https://github.com/flutter/flutter/issues/85160
-// Fails with "flutter test --test-randomize-ordering-seed=20210721"
-@Tags(<String>['no-shuffle'])
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -16,11 +10,10 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_driver/src/common/error.dart';
 import 'package:flutter_driver/src/common/health.dart';
 import 'package:flutter_driver/src/common/layer_tree.dart';
+import 'package:flutter_driver/src/common/text_input_action.dart';
 import 'package:flutter_driver/src/common/wait.dart';
-import 'package:flutter_driver/src/driver/common.dart';
 import 'package:flutter_driver/src/driver/driver.dart';
 import 'package:flutter_driver/src/driver/timeline.dart';
-import 'package:path/path.dart' as path;
 import 'package:vm_service/vm_service.dart' as vms;
 
 import '../../common.dart';
@@ -32,7 +25,7 @@ const String _kWebScriptPrefix = r"window.$flutterDriver('";
 const String _kWebScriptSuffix = "')";
 
 void main() {
-  final List<String> log = <String>[];
+  final log = <String>[];
 
   driverLog = (String source, String message) {
     log.add('$source: $message');
@@ -41,18 +34,15 @@ void main() {
   group('VMServiceFlutterDriver with logCommunicationToFile', () {
     late FakeVmService fakeClient;
     late FakeVM fakeVM;
-    late FakeIsolate fakeIsolate;
+    late vms.Isolate fakeIsolate;
     late VMServiceFlutterDriver driver;
     late File logFile;
-    int driverId = -1;
 
     setUp(() {
-      fakeIsolate = FakeIsolate();
+      fakeIsolate = createFakeIsolate();
       fakeVM = FakeVM(fakeIsolate);
       fakeClient = FakeVmService(fakeVM);
-      fakeClient.responses['waitFor'] = makeFakeResponse(<String, dynamic>{'status':'ok'});
-      driverId += 1;
-      logFile = File(path.join(testOutputsDirectory, 'flutter_driver_commands_$driverId.log'));
+      fakeClient.responses['waitFor'] = makeFakeResponse(<String, dynamic>{'status': 'ok'});
     });
 
     tearDown(() {
@@ -64,6 +54,7 @@ void main() {
     group('logCommunicationToFile', () {
       test('logCommunicationToFile = true', () async {
         driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate);
+        logFile = File(driver.logFilePathName);
 
         await driver.waitFor(find.byTooltip('foo'), timeout: _kTestTimeout);
 
@@ -71,20 +62,43 @@ void main() {
         expect(exists, true, reason: 'Not found ${logFile.path}');
 
         final String commandLog = await logFile.readAsString();
-        const String waitForCommandLog = '>>> {command: waitFor, timeout: $_kSerializedTestTimeout, finderType: ByTooltipMessage, text: foo}';
-        const String responseLog = '<<< {isError: false, response: {status: ok}}';
+        const waitForCommandLog =
+            '>>> {command: waitFor, timeout: $_kSerializedTestTimeout, finderType: ByTooltipMessage, text: foo}';
+        const responseLog = '<<< {isError: false, response: {status: ok}}';
 
-        expect(commandLog.contains(waitForCommandLog), true, reason: '$commandLog not contains $waitForCommandLog');
-        expect(commandLog.contains(responseLog), true, reason: '$commandLog not contains $responseLog');
+        expect(
+          commandLog.contains(waitForCommandLog),
+          true,
+          reason: '$commandLog not contains $waitForCommandLog',
+        );
+        expect(
+          commandLog.contains(responseLog),
+          true,
+          reason: '$commandLog not contains $responseLog',
+        );
       });
 
       test('logCommunicationToFile = false', () async {
-        driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate, logCommunicationToFile: false);
-
+        driver = VMServiceFlutterDriver.connectedTo(
+          fakeClient,
+          fakeIsolate,
+          logCommunicationToFile: false,
+        );
+        logFile = File(driver.logFilePathName);
+        // clear log file if left in filetree from previous run
+        if (logFile.existsSync()) {
+          logFile.deleteSync();
+        }
         await driver.waitFor(find.byTooltip('foo'), timeout: _kTestTimeout);
 
         final bool exists = logFile.existsSync();
         expect(exists, false, reason: 'because ${logFile.path} exists');
+      });
+
+      test('logFilePathName was set when a new driver was created', () {
+        driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate);
+        logFile = File(driver.logFilePathName);
+        expect(logFile.path, endsWith('.log'));
       });
     });
   });
@@ -92,28 +106,32 @@ void main() {
   group('VMServiceFlutterDriver with printCommunication', () {
     late FakeVmService fakeClient;
     late FakeVM fakeVM;
-    late FakeIsolate fakeIsolate;
+    late vms.Isolate fakeIsolate;
     late VMServiceFlutterDriver driver;
 
     setUp(() async {
       log.clear();
-      fakeIsolate = FakeIsolate();
+      fakeIsolate = createFakeIsolate();
       fakeVM = FakeVM(fakeIsolate);
       fakeClient = FakeVmService(fakeVM);
-      fakeClient.responses['waitFor'] = makeFakeResponse(<String, dynamic>{'status':'ok'});
+      fakeClient.responses['waitFor'] = makeFakeResponse(<String, dynamic>{'status': 'ok'});
     });
 
     test('printCommunication = true', () async {
-      driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate, printCommunication: true);
+      driver = VMServiceFlutterDriver.connectedTo(
+        fakeClient,
+        fakeIsolate,
+        printCommunication: true,
+      );
       await driver.waitFor(find.byTooltip('foo'), timeout: _kTestTimeout);
       expect(log, <String>[
         'VMServiceFlutterDriver: >>> {command: waitFor, timeout: $_kSerializedTestTimeout, finderType: ByTooltipMessage, text: foo}',
-        'VMServiceFlutterDriver: <<< {isError: false, response: {status: ok}}'
+        'VMServiceFlutterDriver: <<< {isError: false, response: {status: ok}}',
       ]);
     });
 
     test('printCommunication = false', () async {
-      driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate, printCommunication: false);
+      driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate);
       await driver.waitFor(find.byTooltip('foo'), timeout: _kTestTimeout);
       expect(log, <String>[]);
     });
@@ -122,7 +140,7 @@ void main() {
   group('VMServiceFlutterDriver.connect', () {
     late FakeVmService fakeClient;
     late FakeVM fakeVM;
-    late FakeIsolate fakeIsolate;
+    late vms.Isolate fakeIsolate;
 
     void expectLogContains(String message) {
       expect(log, anyElement(contains(message)));
@@ -130,7 +148,7 @@ void main() {
 
     setUp(() {
       log.clear();
-      fakeIsolate = FakeIsolate();
+      fakeIsolate = createFakeIsolate();
       fakeVM = FakeVM(fakeIsolate);
       fakeClient = FakeVmService(fakeVM);
       vmServiceConnectFunction = (String url, Map<String, dynamic>? headers) async {
@@ -151,8 +169,10 @@ void main() {
       // becomes available. `.timeout` is used here to exit the infinite loop,
       // expecting that no other types of error are thrown during the process.
       expect(
-        vmServiceConnectFunction('http://foo.bar', <String, dynamic>{})
-            .timeout(const Duration(seconds: 1)),
+        vmServiceConnectFunction(
+          'http://foo.bar',
+          <String, dynamic>{},
+        ).timeout(const Duration(seconds: 1)),
         throwsA(isA<TimeoutException>()),
       );
     });
@@ -174,36 +194,57 @@ void main() {
       fakeVM.numberOfTriesBeforeResolvingIsolate = 5;
       final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '');
       expect(driver, isNotNull);
-      expect(
-        fakeClient.connectionLog,
-        <String>[
-          'getIsolate',
-          'setFlag pause_isolates_on_start false',
-          'resume',
-          'streamListen Isolate',
-          'getIsolate',
-          'onIsolateEvent',
-          'streamCancel Isolate',
-        ],
+      expect(fakeClient.connectionLog, <String>[
+        'getIsolate',
+        'setFlag pause_isolates_on_start false',
+        'resume',
+        'streamListen Isolate',
+        'getIsolate',
+        'onIsolateEvent',
+        'streamCancel Isolate',
+      ]);
+    });
+
+    test('Refreshes isolate if it is not started for long time', () async {
+      fakeIsolate.pauseEvent = vms.Event(kind: vms.EventKind.kNone, timestamp: 0);
+      fakeClient.onGetIsolate = changeIsolateEventAfter(
+        5,
+        vms.Event(kind: vms.EventKind.kPauseStart, timestamp: 1),
       );
+
+      final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '');
+      expect(driver, isNotNull);
+      expect(fakeClient.connectionLog, <String>[
+        'getIsolate',
+        'getIsolate',
+        'getIsolate',
+        'getIsolate',
+        'getIsolate',
+        'setFlag pause_isolates_on_start false',
+        'resume',
+        'streamListen Isolate',
+        'getIsolate',
+        'onIsolateEvent',
+        'streamCancel Isolate',
+      ]);
     });
 
     test('Connects to isolate number', () async {
       fakeIsolate.pauseEvent = vms.Event(kind: vms.EventKind.kPauseStart, timestamp: 0);
-      final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '', isolateNumber: int.parse(fakeIsolate.number));
-      expect(driver, isNotNull);
-      expect(
-        fakeClient.connectionLog,
-        <String>[
-          'getIsolate',
-          'setFlag pause_isolates_on_start false',
-          'resume',
-          'streamListen Isolate',
-          'getIsolate',
-          'onIsolateEvent',
-          'streamCancel Isolate',
-        ],
+      final FlutterDriver driver = await FlutterDriver.connect(
+        dartVmServiceUrl: '',
+        isolateNumber: int.parse(fakeIsolate.number!),
       );
+      expect(driver, isNotNull);
+      expect(fakeClient.connectionLog, <String>[
+        'getIsolate',
+        'setFlag pause_isolates_on_start false',
+        'resume',
+        'streamListen Isolate',
+        'getIsolate',
+        'onIsolateEvent',
+        'streamCancel Isolate',
+      ]);
     });
 
     test('connects to isolate paused at start', () async {
@@ -212,18 +253,15 @@ void main() {
       final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '');
       expect(driver, isNotNull);
       expectLogContains('Isolate is paused at start');
-      expect(
-        fakeClient.connectionLog,
-        <String>[
-          'getIsolate',
-          'setFlag pause_isolates_on_start false',
-          'resume',
-          'streamListen Isolate',
-          'getIsolate',
-          'onIsolateEvent',
-          'streamCancel Isolate',
-        ],
-      );
+      expect(fakeClient.connectionLog, <String>[
+        'getIsolate',
+        'setFlag pause_isolates_on_start false',
+        'resume',
+        'streamListen Isolate',
+        'getIsolate',
+        'onIsolateEvent',
+        'streamCancel Isolate',
+      ]);
     });
 
     test('ignores setFlag failure', () async {
@@ -231,14 +269,23 @@ void main() {
       fakeClient.failOnSetFlag = true;
 
       final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '');
-      expectLogContains('Failed to set pause_isolates_on_start=false, proceeding. '
-                        'Error: Exception: setFlag failed');
+      expectLogContains(
+        'Failed to set pause_isolates_on_start=false, proceeding. '
+        'Error: Exception: setFlag failed',
+      );
       expect(driver, isNotNull);
     });
 
-
     test('connects to isolate paused mid-flight', () async {
       fakeIsolate.pauseEvent = vms.Event(kind: vms.EventKind.kPauseBreakpoint, timestamp: 0);
+
+      final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '');
+      expect(driver, isNotNull);
+      expectLogContains('Isolate is paused mid-flight');
+    });
+
+    test('connects to isolate paused mid-flight after request', () async {
+      fakeIsolate.pauseEvent = vms.Event(kind: vms.EventKind.kPausePostRequest, timestamp: 0);
 
       final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '');
       expect(driver, isNotNull);
@@ -267,9 +314,9 @@ void main() {
     });
 
     test('connects to unpaused when onExtensionAdded does not contain the '
-      'driver extension', () async {
+        'driver extension', () async {
       fakeIsolate.pauseEvent = vms.Event(kind: vms.EventKind.kResume, timestamp: 0);
-      fakeIsolate.extensionRPCs.add('ext.flutter.driver');
+      fakeIsolate.extensionRPCs!.add('ext.flutter.driver');
 
       final FlutterDriver driver = await FlutterDriver.connect(dartVmServiceUrl: '');
       expect(driver, isNotNull);
@@ -280,11 +327,11 @@ void main() {
   group('VMServiceFlutterDriver', () {
     late FakeVmService fakeClient;
     late FakeVM fakeVM;
-    late FakeIsolate fakeIsolate;
+    late vms.Isolate fakeIsolate;
     late VMServiceFlutterDriver driver;
 
     setUp(() {
-      fakeIsolate = FakeIsolate();
+      fakeIsolate = createFakeIsolate();
       fakeVM = FakeVM(fakeIsolate);
       fakeClient = FakeVmService(fakeVM);
       driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate);
@@ -351,15 +398,23 @@ void main() {
       });
     });
 
+    group('sendTextInputAction', () {
+      test('sends the SendTextInputAction command with action done', () async {
+        fakeClient.responses['send_text_input_action'] = makeFakeResponse(<String, dynamic>{});
+        await driver.sendTextInputAction(TextInputAction.done, timeout: _kTestTimeout);
+        expect(fakeClient.commandLog, <String>[
+          'ext.flutter.driver {command: send_text_input_action, timeout: $_kSerializedTestTimeout, action: done}',
+        ]);
+      });
+    });
+
     group('getLayerTree', () {
       test('sends the getLayerTree command', () async {
         fakeClient.responses['get_layer_tree'] = makeFakeResponse(<String, String>{
           'tree': 'hello',
         });
         final LayerTree result = await driver.getLayerTree(timeout: _kTestTimeout);
-        final LayerTree referenceTree = LayerTree.fromJson(<String, String>{
-            'tree': 'hello',
-          });
+        final referenceTree = LayerTree.fromJson(<String, String>{'tree': 'hello'});
         expect(result.tree, referenceTree.tree);
         expect(fakeClient.commandLog, <String>[
           'ext.flutter.driver {command: get_layer_tree, timeout: $_kSerializedTestTimeout}',
@@ -416,12 +471,39 @@ void main() {
 
       test('sends the waitForCondition of combined conditions command', () async {
         fakeClient.responses['waitForCondition'] = makeFakeResponse(<String, dynamic>{});
-        const SerializableWaitCondition combinedCondition =
-            CombinedCondition(<SerializableWaitCondition>[NoPendingFrame(), NoTransientCallbacks()]);
+        const SerializableWaitCondition combinedCondition = CombinedCondition(
+          <SerializableWaitCondition>[NoPendingFrame(), NoTransientCallbacks()],
+        );
         await driver.waitForCondition(combinedCondition, timeout: _kTestTimeout);
-         expect(fakeClient.commandLog, <String>[
+        expect(fakeClient.commandLog, <String>[
           'ext.flutter.driver {command: waitForCondition, timeout: $_kSerializedTestTimeout, conditionName: CombinedCondition, conditions: [{"conditionName":"NoPendingFrameCondition"},{"conditionName":"NoTransientCallbacksCondition"}]}',
         ]);
+      });
+    });
+
+    group('scrollUntilVisible', () {
+      test('should report error when waitFor fails', () async {
+        fakeClient.responses['waitFor'] = makeFakeResponse(<String, dynamic>{
+          'message': 'waitFor failed',
+        }, isError: true);
+        fakeClient.responses['scroll'] = makeFakeResponse(<String, dynamic>{});
+        fakeClient.responses['scrollIntoView'] = makeFakeResponse(<String, dynamic>{});
+
+        await expectLater(
+          driver.scrollUntilVisible(
+            find.byTooltip('scrollable'),
+            find.byTooltip('item'),
+            dyScroll: 100,
+            timeout: const Duration(milliseconds: 500),
+          ),
+          throwsA(
+            isA<DriverError>().having(
+              (error) => error.message,
+              'message',
+              contains('waitFor failed'),
+            ),
+          ),
+        );
       });
     });
 
@@ -447,49 +529,61 @@ void main() {
 
     group('getOffset', () {
       setUp(() {
-        fakeClient.responses['get_offset'] = makeFakeResponse(<String, double>{
-          'dx': 11,
-          'dy': 12,
-        });
+        fakeClient.responses['get_offset'] = makeFakeResponse(<String, double>{'dx': 11, 'dy': 12});
       });
 
       test('sends the getCenter command', () async {
-        final DriverOffset result = await driver.getCenter(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getCenter(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeClient.commandLog, <String>[
-           'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: center}',
+          'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: center}',
         ]);
       });
 
       test('sends the getTopLeft command', () async {
-        final DriverOffset result = await driver.getTopLeft(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getTopLeft(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeClient.commandLog, <String>[
-           'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: topLeft}',
+          'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: topLeft}',
         ]);
       });
 
       test('sends the getTopRight command', () async {
-        final DriverOffset result = await driver.getTopRight(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getTopRight(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeClient.commandLog, <String>[
-           'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: topRight}',
+          'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: topRight}',
         ]);
       });
 
       test('sends the getBottomLeft command', () async {
-        final DriverOffset result = await driver.getBottomLeft(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getBottomLeft(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeClient.commandLog, <String>[
-           'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: bottomLeft}',
+          'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: bottomLeft}',
         ]);
       });
 
       test('sends the getBottomRight command', () async {
-        final DriverOffset result = await driver.getBottomRight(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getBottomRight(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeClient.commandLog, <String>[
-           'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: bottomRight}',
+          'ext.flutter.driver {command: get_offset, timeout: 1234, finderType: ByValueKey, keyValueString: 123, keyValueType: int, offsetType: bottomRight}',
         ]);
       });
     });
@@ -539,9 +633,7 @@ void main() {
         fakeClient.incrementMicros = true;
         fakeClient.timelineResponses[1000001] = vms.Timeline.parse(<String, dynamic>{
           'traceEvents': <dynamic>[
-            <String, dynamic>{
-              'name': 'test event 2',
-            },
+            <String, dynamic>{'name': 'test event 2'},
           ],
           'timeOriginMicros': 1000000,
           'timeExtentMicros': 999999,
@@ -570,24 +662,26 @@ void main() {
 
     group('traceAction with timeline streams', () {
       test('specify non-default timeline streams', () async {
-        bool actionCalled = false;
+        var actionCalled = false;
 
-        final Timeline timeline = await driver.traceAction(() async {
-          actionCalled = true;
-        },
-        streams: const <TimelineStream>[
-          TimelineStream.dart,
-          TimelineStream.gc,
-          TimelineStream.compiler,
-        ],
-        retainPriorEvents: true);
+        final Timeline timeline = await driver.traceAction(
+          () async {
+            actionCalled = true;
+          },
+          streams: const <TimelineStream>[
+            TimelineStream.dart,
+            TimelineStream.gc,
+            TimelineStream.compiler,
+          ],
+          retainPriorEvents: true,
+        );
 
         expect(actionCalled, isTrue);
         expect(fakeClient.connectionLog, <String>[
           'setVMTimelineFlags [Dart, GC, Compiler]',
           'getFlagList',
           'setVMTimelineFlags []',
-          'getVMTimeline null null'
+          'getVMTimeline null null',
         ]);
 
         expect(timeline.events!.single.name, 'test event');
@@ -599,11 +693,14 @@ void main() {
         log.clear();
         fakeClient.artificialExtensionDelay = Completer<void>().future;
         FakeAsync().run((FakeAsync time) {
+          // ignore: unawaited_futures
           driver.waitFor(find.byTooltip('foo'));
           expect(log, <String>[]);
           time.elapse(kUnusuallyLongTimeout);
         });
-        expect(log, <String>['VMServiceFlutterDriver: waitFor message is taking a long time to complete...']);
+        expect(log, <String>[
+          'VMServiceFlutterDriver: waitFor message is taking a long time to complete...',
+        ]);
       });
 
       test('local custom timeout', () async {
@@ -611,11 +708,14 @@ void main() {
         fakeClient.artificialExtensionDelay = Completer<void>().future;
         FakeAsync().run((FakeAsync time) {
           final Duration customTimeout = kUnusuallyLongTimeout - const Duration(seconds: 1);
+          // ignore: unawaited_futures
           driver.waitFor(find.byTooltip('foo'), timeout: customTimeout);
           expect(log, <String>[]);
           time.elapse(customTimeout);
         });
-        expect(log, <String>['VMServiceFlutterDriver: waitFor message is taking a long time to complete...']);
+        expect(log, <String>[
+          'VMServiceFlutterDriver: waitFor message is taking a long time to complete...',
+        ]);
       });
 
       test('remote error', () async {
@@ -623,12 +723,14 @@ void main() {
           'message': 'This is a failure',
         }, isError: true);
         await expectLater(
-          () => driver.waitFor(find.byTooltip('foo')),
-          throwsA(isA<DriverError>().having(
-            (DriverError error) => error.message,
-            'message',
-            'Error in Flutter application: {message: This is a failure}',
-          )),
+          driver.waitFor(find.byTooltip('foo')),
+          throwsA(
+            isA<DriverError>().having(
+              (DriverError error) => error.message,
+              'message',
+              'Error in Flutter application: {message: This is a failure}',
+            ),
+          ),
         );
       });
 
@@ -672,14 +774,14 @@ void main() {
         fakeClient.responses['waitFor'] = makeFakeResponse(<String, dynamic>{});
         fakeClient.responses['set_frame_sync'] = makeFakeResponse(<String, dynamic>{});
 
-        await driver.runUnsynchronized(() async  {
+        await driver.runUnsynchronized(() async {
           await driver.waitFor(find.byTooltip('foo'), timeout: _kTestTimeout);
         });
 
         expect(fakeClient.commandLog, <String>[
           'ext.flutter.driver {command: set_frame_sync, enabled: false}',
           'ext.flutter.driver {command: waitFor, timeout: $_kSerializedTestTimeout, finderType: ByTooltipMessage, text: foo}',
-          'ext.flutter.driver {command: set_frame_sync, enabled: true}'
+          'ext.flutter.driver {command: set_frame_sync, enabled: true}',
         ]);
       });
     });
@@ -688,11 +790,11 @@ void main() {
   group('VMServiceFlutterDriver with custom timeout', () {
     late FakeVmService fakeClient;
     late FakeVM fakeVM;
-    late FakeIsolate fakeIsolate;
+    late vms.Isolate fakeIsolate;
     late VMServiceFlutterDriver driver;
 
     setUp(() {
-      fakeIsolate = FakeIsolate();
+      fakeIsolate = createFakeIsolate();
       fakeVM = FakeVM(fakeIsolate);
       fakeClient = FakeVmService(fakeVM);
       driver = VMServiceFlutterDriver.connectedTo(fakeClient, fakeIsolate);
@@ -701,18 +803,14 @@ void main() {
 
     test('GetHealth has no default timeout', () async {
       await driver.checkHealth();
-      expect(
-        fakeClient.commandLog,
-        <String>['ext.flutter.driver {command: get_health}'],
-      );
+      expect(fakeClient.commandLog, <String>['ext.flutter.driver {command: get_health}']);
     });
 
     test('does not interfere with explicit timeouts', () async {
       await driver.checkHealth(timeout: _kTestTimeout);
-      expect(
-        fakeClient.commandLog,
-        <String>['ext.flutter.driver {command: get_health, timeout: $_kSerializedTestTimeout}'],
-      );
+      expect(fakeClient.commandLog, <String>[
+        'ext.flutter.driver {command: get_health, timeout: $_kSerializedTestTimeout}',
+      ]);
     });
   });
 
@@ -720,14 +818,13 @@ void main() {
     late FakeFlutterWebConnection fakeConnection;
     late WebFlutterDriver driver;
     late File logFile;
-    int driverId = -1;
 
     setUp(() {
       fakeConnection = FakeFlutterWebConnection();
       fakeConnection.supportsTimelineAction = true;
-      fakeConnection.responses['waitFor'] = jsonEncode(makeFakeResponse(<String, dynamic>{'status': 'ok'}));
-      driverId += 1;
-      logFile = File(path.join(testOutputsDirectory, 'flutter_driver_commands_$driverId.log'));
+      fakeConnection.responses['waitFor'] = jsonEncode(
+        makeFakeResponse(<String, dynamic>{'status': 'ok'}),
+      );
     });
 
     tearDown(() {
@@ -738,21 +835,32 @@ void main() {
 
     test('logCommunicationToFile = true', () async {
       driver = WebFlutterDriver.connectedTo(fakeConnection);
+      logFile = File(driver.logFilePathName);
       await driver.waitFor(find.byTooltip('logCommunicationToFile test'), timeout: _kTestTimeout);
 
       final bool exists = logFile.existsSync();
       expect(exists, true, reason: 'Not found ${logFile.path}');
 
       final String commandLog = await logFile.readAsString();
-      const String waitForCommandLog = '>>> {command: waitFor, timeout: 1234, finderType: ByTooltipMessage, text: logCommunicationToFile test}';
-      const String responseLog = '<<< {isError: false, response: {status: ok}, type: Response}';
+      const waitForCommandLog =
+          '>>> {command: waitFor, timeout: 1234, finderType: ByTooltipMessage, text: logCommunicationToFile test}';
+      const responseLog = '<<< {isError: false, response: {status: ok}, type: Response}';
 
-      expect(commandLog.contains(waitForCommandLog), true, reason: '$commandLog not contains $waitForCommandLog');
-      expect(commandLog.contains(responseLog), true, reason: '$commandLog not contains $responseLog');
+      expect(
+        commandLog,
+        contains(waitForCommandLog),
+        reason: '$commandLog not contains $waitForCommandLog',
+      );
+      expect(commandLog, contains(responseLog), reason: '$commandLog not contains $responseLog');
     });
 
     test('logCommunicationToFile = false', () async {
       driver = WebFlutterDriver.connectedTo(fakeConnection, logCommunicationToFile: false);
+      logFile = File(driver.logFilePathName);
+      // clear log file if left in filetree from previous run
+      if (logFile.existsSync()) {
+        logFile.deleteSync();
+      }
       await driver.waitFor(find.byTooltip('logCommunicationToFile test'), timeout: _kTestTimeout);
       final bool exists = logFile.existsSync();
       expect(exists, false, reason: 'because ${logFile.path} exists');
@@ -767,7 +875,9 @@ void main() {
       log.clear();
       fakeConnection = FakeFlutterWebConnection();
       fakeConnection.supportsTimelineAction = true;
-      fakeConnection.responses['waitFor'] = jsonEncode(makeFakeResponse(<String, dynamic>{'status': 'ok'}));
+      fakeConnection.responses['waitFor'] = jsonEncode(
+        makeFakeResponse(<String, dynamic>{'status': 'ok'}),
+      );
     });
 
     test('printCommunication = true', () async {
@@ -780,7 +890,7 @@ void main() {
     });
 
     test('printCommunication = false', () async {
-      driver = WebFlutterDriver.connectedTo(fakeConnection, printCommunication: false);
+      driver = WebFlutterDriver.connectedTo(fakeConnection);
       await driver.waitFor(find.byTooltip('printCommunication test'), timeout: _kTestTimeout);
       expect(log, <String>[]);
     });
@@ -802,8 +912,7 @@ void main() {
 
     group('ByValueKey', () {
       test('restricts value types', () async {
-        expect(() => find.byValueKey(null),
-            throwsDriverError);
+        expect(() => find.byValueKey(null), throwsDriverError);
       });
 
       test('finds by ValueKey', () async {
@@ -845,7 +954,9 @@ void main() {
 
     group('getText', () {
       test('sends the getText command', () async {
-        fakeConnection.responses['get_text'] = jsonEncode(makeFakeResponse(<String, dynamic>{'text': 'hello'}));
+        fakeConnection.responses['get_text'] = jsonEncode(
+          makeFakeResponse(<String, dynamic>{'text': 'hello'}),
+        );
         final String result = await driver.getText(find.byValueKey(123), timeout: _kTestTimeout);
         expect(result, 'hello');
         expect(fakeConnection.commandLog, <String>[
@@ -856,7 +967,9 @@ void main() {
 
     group('waitFor', () {
       test('sends the waitFor command', () async {
-        fakeConnection.responses['waitFor'] = jsonEncode(makeFakeResponse(<String, dynamic>{'text': 'hello'}));
+        fakeConnection.responses['waitFor'] = jsonEncode(
+          makeFakeResponse(<String, dynamic>{'text': 'hello'}),
+        );
         await driver.waitFor(find.byTooltip('foo'), timeout: _kTestTimeout);
         expect(fakeConnection.commandLog, <String>[
           r'''window.$flutterDriver('{"command":"waitFor","timeout":"1234","finderType":"ByTooltipMessage","text":"foo"}') 0:00:01.234000''',
@@ -866,7 +979,9 @@ void main() {
 
     group('waitForCondition', () {
       setUp(() {
-        fakeConnection.responses['waitForCondition'] = jsonEncode(makeFakeResponse(<String, dynamic>{'text': 'hello'}));
+        fakeConnection.responses['waitForCondition'] = jsonEncode(
+          makeFakeResponse(<String, dynamic>{'text': 'hello'}),
+        );
       });
 
       test('sends the wait for NoPendingFrameCondition command', () async {
@@ -896,7 +1011,9 @@ void main() {
 
     group('waitUntilNoTransientCallbacks', () {
       test('sends the waitUntilNoTransientCallbacks command', () async {
-        fakeConnection.responses['waitForCondition'] = jsonEncode(makeFakeResponse(<String, dynamic>{}));
+        fakeConnection.responses['waitForCondition'] = jsonEncode(
+          makeFakeResponse(<String, dynamic>{}),
+        );
         await driver.waitUntilNoTransientCallbacks(timeout: _kTestTimeout);
         expect(fakeConnection.commandLog, <String>[
           r'''window.$flutterDriver('{"command":"waitForCondition","timeout":"1234","conditionName":"NoTransientCallbacksCondition"}') 0:00:01.234000''',
@@ -906,14 +1023,16 @@ void main() {
 
     group('getOffset', () {
       setUp(() {
-        fakeConnection.responses['get_offset'] = jsonEncode(makeFakeResponse(<String, double>{
-          'dx': 11,
-          'dy': 12,
-        }));
+        fakeConnection.responses['get_offset'] = jsonEncode(
+          makeFakeResponse(<String, double>{'dx': 11, 'dy': 12}),
+        );
       });
 
       test('sends the getCenter command', () async {
-        final DriverOffset result = await driver.getCenter(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getCenter(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeConnection.commandLog, <String>[
           r'''window.$flutterDriver('{"command":"get_offset","timeout":"1234","finderType":"ByValueKey","keyValueString":"123","keyValueType":"int","offsetType":"center"}') 0:00:01.234000''',
@@ -921,7 +1040,10 @@ void main() {
       });
 
       test('sends the getTopLeft command', () async {
-        final DriverOffset result = await driver.getTopLeft(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getTopLeft(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeConnection.commandLog, <String>[
           r'''window.$flutterDriver('{"command":"get_offset","timeout":"1234","finderType":"ByValueKey","keyValueString":"123","keyValueType":"int","offsetType":"topLeft"}') 0:00:01.234000''',
@@ -929,7 +1051,10 @@ void main() {
       });
 
       test('sends the getTopRight command', () async {
-        final DriverOffset result = await driver.getTopRight(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getTopRight(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeConnection.commandLog, <String>[
           r'''window.$flutterDriver('{"command":"get_offset","timeout":"1234","finderType":"ByValueKey","keyValueString":"123","keyValueType":"int","offsetType":"topRight"}') 0:00:01.234000''',
@@ -937,7 +1062,10 @@ void main() {
       });
 
       test('sends the getBottomLeft command', () async {
-        final DriverOffset result = await driver.getBottomLeft(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getBottomLeft(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeConnection.commandLog, <String>[
           r'''window.$flutterDriver('{"command":"get_offset","timeout":"1234","finderType":"ByValueKey","keyValueString":"123","keyValueType":"int","offsetType":"bottomLeft"}') 0:00:01.234000''',
@@ -945,7 +1073,10 @@ void main() {
       });
 
       test('sends the getBottomRight command', () async {
-        final DriverOffset result = await driver.getBottomRight(find.byValueKey(123), timeout: _kTestTimeout);
+        final DriverOffset result = await driver.getBottomRight(
+          find.byValueKey(123),
+          timeout: _kTestTimeout,
+        );
         expect(result, const DriverOffset(11, 12));
         expect(fakeConnection.commandLog, <String>[
           r'''window.$flutterDriver('{"command":"get_offset","timeout":"1234","finderType":"ByValueKey","keyValueString":"123","keyValueType":"int","offsetType":"bottomRight"}') 0:00:01.234000''',
@@ -954,7 +1085,9 @@ void main() {
     });
 
     test('checks the health of the driver extension', () async {
-      fakeConnection.responses['get_health'] = jsonEncode(makeFakeResponse(<String, dynamic>{'status': 'ok'}));
+      fakeConnection.responses['get_health'] = jsonEncode(
+        makeFakeResponse(<String, dynamic>{'status': 'ok'}),
+      );
       await driver.checkHealth();
       expect(fakeConnection.commandLog, <String>[
         r'''window.$flutterDriver('{"command":"get_health"}') null''',
@@ -974,7 +1107,7 @@ void main() {
         expect(driver.waitUntilFirstFrameRasterized(), throwsUnimplementedError);
       });
 
-      test('appIsoloate', () async {
+      test('appIsolate', () async {
         expect(() => driver.appIsolate.extensionRPCs, throwsUnsupportedError);
       });
 
@@ -985,8 +1118,12 @@ void main() {
 
     group('runUnsynchronized', () {
       test('wrap waitFor with runUnsynchronized', () async {
-        fakeConnection.responses['waitFor'] = jsonEncode(makeFakeResponse(<String, dynamic>{'text': 'hello'}));
-        fakeConnection.responses['set_frame_sync'] = jsonEncode(makeFakeResponse(<String, dynamic>{}));
+        fakeConnection.responses['waitFor'] = jsonEncode(
+          makeFakeResponse(<String, dynamic>{'text': 'hello'}),
+        );
+        fakeConnection.responses['set_frame_sync'] = jsonEncode(
+          makeFakeResponse(<String, dynamic>{}),
+        );
 
         await driver.runUnsynchronized(() async {
           await driver.waitFor(find.byTooltip('foo'), timeout: _kTestTimeout);
@@ -1011,7 +1148,12 @@ void main() {
     });
 
     test('tracing', () async {
-      expect(driver.traceAction(() async { return Future<dynamic>.value(); }), throwsUnsupportedError);
+      expect(
+        driver.traceAction(() async {
+          return Future<dynamic>.value();
+        }),
+        throwsUnsupportedError,
+      );
       expect(driver.startTracing(), throwsUnsupportedError);
       expect(driver.stopTracingAndDownloadTimeline(), throwsUnsupportedError);
       expect(driver.clearTimeline(), throwsUnsupportedError);
@@ -1024,21 +1166,24 @@ void main() {
 //   window.flutterDriver('[actual script]')
 String _checkAndEncode(dynamic script) {
   expect(script, isA<String>());
-  final String scriptString = script as String;
+  final scriptString = script as String;
   expect(scriptString.startsWith(_kWebScriptPrefix), isTrue);
   expect(scriptString.endsWith(_kWebScriptSuffix), isTrue);
   // Strip prefix and suffix
   return scriptString.substring(_kWebScriptPrefix.length, script.length - 2);
 }
 
-vms.Response? makeFakeResponse(
-  Map<String, dynamic> response, {
-  bool isError = false,
-}) {
-  return vms.Response.parse(<String, dynamic>{
-    'isError': isError,
-    'response': response,
-  });
+vms.Response? makeFakeResponse(Map<String, dynamic> response, {bool isError = false}) {
+  return vms.Response.parse(<String, dynamic>{'isError': isError, 'response': response});
+}
+
+void Function(vms.Isolate) changeIsolateEventAfter(int gets, vms.Event nextEvent) {
+  return (vms.Isolate i) {
+    gets -= 1;
+    if (gets == 0) {
+      i.pauseEvent = nextEvent;
+    }
+  };
 }
 
 class FakeFlutterWebConnection extends Fake implements FlutterWebConnection {
@@ -1050,7 +1195,7 @@ class FakeFlutterWebConnection extends Fake implements FlutterWebConnection {
   @override
   Future<dynamic> sendCommand(String script, Duration? duration) async {
     commandLog.add('$script $duration');
-    final Map<String, dynamic> decoded = jsonDecode(_checkAndEncode(script)) as Map<String, dynamic>;
+    final decoded = jsonDecode(_checkAndEncode(script)) as Map<String, dynamic>;
     final dynamic response = responses[decoded['command']];
     assert(response != null, 'Missing ${decoded['command']} in responses.');
     return response;
@@ -1068,6 +1213,7 @@ class FakeVmService extends Fake implements vms.VmService {
   FakeVM? vm;
   bool failOnSetFlag = false;
   bool failOnResumeWith101 = false;
+  void Function(vms.Isolate)? onGetIsolate;
 
   final List<String> connectionLog = <String>[];
 
@@ -1078,6 +1224,7 @@ class FakeVmService extends Fake implements vms.VmService {
   Future<vms.Isolate> getIsolate(String isolateId) async {
     connectionLog.add('getIsolate');
     if (isolateId == vm!.isolate!.id) {
+      onGetIsolate?.call(vm!.isolate!);
       return vm!.isolate!;
     }
     throw UnimplementedError('getIsolate called with unrecognized $isolateId');
@@ -1129,13 +1276,17 @@ class FakeVmService extends Fake implements vms.VmService {
   Future<void>? artificialExtensionDelay;
 
   @override
-  Future<vms.Response> callServiceExtension(String method, {Map<dynamic, dynamic>? args, String? isolateId}) async {
+  Future<vms.Response> callServiceExtension(
+    String method, {
+    Map<dynamic, dynamic>? args,
+    String? isolateId,
+  }) async {
     commandLog.add('$method $args');
     await artificialExtensionDelay;
 
-    final vms.Response response = responses[args!['command']]!;
+    final vms.Response? response = responses[args!['command']];
     assert(response != null, 'Failed to create a response for ${args['command']}');
-    return response;
+    return response!;
   }
 
   @override
@@ -1171,9 +1322,7 @@ class FakeVmService extends Fake implements vms.VmService {
   final Map<int, vms.Timeline?> timelineResponses = <int, vms.Timeline?>{
     1: vms.Timeline.parse(<String, dynamic>{
       'traceEvents': <dynamic>[
-        <String, dynamic>{
-          'name': 'test event',
-        },
+        <String, dynamic>{'name': 'test event'},
       ],
       'timeOriginMicros': 0,
       'timeExtentMicros': 999999,
@@ -1183,9 +1332,9 @@ class FakeVmService extends Fake implements vms.VmService {
   @override
   Future<vms.Timeline> getVMTimeline({int? timeOriginMicros, int? timeExtentMicros}) async {
     connectionLog.add('getVMTimeline $timeOriginMicros $timeExtentMicros');
-    final vms.Timeline timeline = timelineResponses[timeOriginMicros ?? 1]!;
+    final vms.Timeline? timeline = timelineResponses[timeOriginMicros ?? 1];
     assert(timeline != null, 'Missing entry in timelineResponses[$timeOriginMicros]');
-    return timeline;
+    return timeline!;
   }
 
   @override
@@ -1207,23 +1356,8 @@ class FakeVM extends Fake implements vms.VM {
   @override
   List<vms.IsolateRef> get isolates {
     numberOfTriesBeforeResolvingIsolate -= 1;
-    return <vms.Isolate>[
-      if (numberOfTriesBeforeResolvingIsolate <= 0)
-        isolate!,
-    ];
+    return <vms.Isolate>[if (numberOfTriesBeforeResolvingIsolate <= 0) isolate!];
   }
 }
 
-class FakeIsolate extends Fake implements vms.Isolate {
-  @override
-  String get number => '123';
-
-  @override
-  String get id => number;
-
-  @override
-  vms.Event? pauseEvent;
-
-  @override
-  List<String> get extensionRPCs => <String>[];
-}
+vms.Isolate createFakeIsolate() => vms.Isolate(id: '123', number: '123', extensionRPCs: <String>[]);

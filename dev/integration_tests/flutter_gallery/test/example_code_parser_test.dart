@@ -2,15 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:typed_data';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_gallery/gallery/example_code_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Flutter gallery example code parser test', () async {
-    final TestAssetBundle bundle = TestAssetBundle();
+    final bundle = TestAssetBundle();
 
     final String? codeSnippet0 = await getExampleCode('test_0', bundle);
     expect(codeSnippet0, 'test 0 0\ntest 0 1');
@@ -46,9 +44,10 @@ class TestAssetBundle extends AssetBundle {
   }
 
   @override
-  Future<String> loadString(String key, { bool cache = true }) async {
-    if (key == 'lib/gallery/example_code.dart')
+  Future<String> loadString(String key, {bool cache = true}) async {
+    if (key == 'lib/gallery/example_code.dart') {
       return testCodeFile;
+    }
     return '';
   }
 

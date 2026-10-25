@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import '../../gallery/demo.dart';
 
 class SliderDemo extends StatefulWidget {
-  const SliderDemo({Key? key}) : super(key: key);
+  const SliderDemo({super.key});
 
   static const String routeName = '/material/slider';
 
@@ -17,12 +17,12 @@ class SliderDemo extends StatefulWidget {
   State<SliderDemo> createState() => _SliderDemoState();
 }
 
-Path _downTriangle(double size, Offset thumbCenter, { bool invert = false }) {
-  final Path thumbPath = Path();
+Path _downTriangle(double size, Offset thumbCenter, {bool invert = false}) {
+  final thumbPath = Path();
   final double height = math.sqrt(3.0) / 2.0;
   final double centerHeight = size * height / 3.0;
   final double halfSize = size / 2.0;
-  final double sign = invert ? -1.0 : 1.0;
+  final sign = invert ? -1.0 : 1.0;
   thumbPath.moveTo(thumbCenter.dx - halfSize, thumbCenter.dy + sign * centerHeight);
   thumbPath.lineTo(thumbCenter.dx, thumbCenter.dy - 2.0 * sign * centerHeight);
   thumbPath.lineTo(thumbCenter.dx + halfSize, thumbCenter.dy + sign * centerHeight);
@@ -30,10 +30,10 @@ Path _downTriangle(double size, Offset thumbCenter, { bool invert = false }) {
   return thumbPath;
 }
 
-Path _rightTriangle(double size, Offset thumbCenter, { bool invert = false }) {
-  final Path thumbPath = Path();
+Path _rightTriangle(double size, Offset thumbCenter, {bool invert = false}) {
+  final thumbPath = Path();
   final double halfSize = size / 2.0;
-  final double sign = invert ? -1.0 : 1.0;
+  final sign = invert ? -1.0 : 1.0;
   thumbPath.moveTo(thumbCenter.dx + halfSize * sign, thumbCenter.dy);
   thumbPath.lineTo(thumbCenter.dx - halfSize * sign, thumbCenter.dy - size);
   thumbPath.lineTo(thumbCenter.dx - halfSize * sign, thumbCenter.dy + size);
@@ -43,7 +43,8 @@ Path _rightTriangle(double size, Offset thumbCenter, { bool invert = false }) {
 
 Path _upTriangle(double size, Offset thumbCenter) => _downTriangle(size, thumbCenter, invert: true);
 
-Path _leftTriangle(double size, Offset thumbCenter) => _rightTriangle(size, thumbCenter, invert: true);
+Path _leftTriangle(double size, Offset thumbCenter) =>
+    _rightTriangle(size, thumbCenter, invert: true);
 
 class _CustomRangeThumbShape extends RangeSliderThumbShape {
   static const double _thumbSize = 4.0;
@@ -51,7 +52,9 @@ class _CustomRangeThumbShape extends RangeSliderThumbShape {
 
   @override
   Size getPreferredSize(bool isEnabled, bool isDiscrete) {
-    return isEnabled ? const Size.fromRadius(_thumbSize) : const Size.fromRadius(_disabledThumbSize);
+    return isEnabled
+        ? const Size.fromRadius(_thumbSize)
+        : const Size.fromRadius(_disabledThumbSize);
   }
 
   static final Animatable<double> sizeTween = Tween<double>(
@@ -74,41 +77,18 @@ class _CustomRangeThumbShape extends RangeSliderThumbShape {
     bool? isPressed,
   }) {
     final Canvas canvas = context.canvas;
-    final ColorTween colorTween = ColorTween(
+    final colorTween = ColorTween(
       begin: sliderTheme.disabledThumbColor,
       end: sliderTheme.thumbColor,
     );
 
     final double size = _thumbSize * sizeTween.evaluate(enableAnimation);
-    late Path thumbPath;
-    switch (textDirection) {
-      case TextDirection.rtl:
-        switch (thumb) {
-          case Thumb.start:
-            thumbPath = _rightTriangle(size, center);
-            break;
-          case Thumb.end:
-            thumbPath = _leftTriangle(size, center);
-            break;
-          default:
-            break;
-        }
-        break;
-      case TextDirection.ltr:
-        switch (thumb) {
-          case Thumb.start:
-            thumbPath = _leftTriangle(size, center);
-            break;
-          case Thumb.end:
-            thumbPath = _rightTriangle(size, center);
-            break;
-          default:
-            break;
-        }
-        break;
-      default:
-        break;
-    }
+    final Path thumbPath = switch ((textDirection!, thumb!)) {
+      (TextDirection.rtl, Thumb.start) => _rightTriangle(size, center),
+      (TextDirection.rtl, Thumb.end) => _leftTriangle(size, center),
+      (TextDirection.ltr, Thumb.start) => _leftTriangle(size, center),
+      (TextDirection.ltr, Thumb.end) => _rightTriangle(size, center),
+    };
     canvas.drawPath(thumbPath, Paint()..color = colorTween.evaluate(enableAnimation)!);
   }
 }
@@ -119,7 +99,9 @@ class _CustomThumbShape extends SliderComponentShape {
 
   @override
   Size getPreferredSize(bool isEnabled, bool isDiscrete) {
-    return isEnabled ? const Size.fromRadius(_thumbSize) : const Size.fromRadius(_disabledThumbSize);
+    return isEnabled
+        ? const Size.fromRadius(_thumbSize)
+        : const Size.fromRadius(_disabledThumbSize);
   }
 
   static final Animatable<double> sizeTween = Tween<double>(
@@ -143,7 +125,7 @@ class _CustomThumbShape extends SliderComponentShape {
     Size? sizeWithOverflow,
   }) {
     final Canvas canvas = context.canvas;
-    final ColorTween colorTween = ColorTween(
+    final colorTween = ColorTween(
       begin: sliderTheme.disabledThumbColor,
       end: sliderTheme.thumbColor,
     );
@@ -184,37 +166,37 @@ class _CustomValueIndicatorShape extends SliderComponentShape {
     Size? sizeWithOverflow,
   }) {
     final Canvas canvas = context.canvas;
-    final ColorTween enableColor = ColorTween(
+    final enableColor = ColorTween(
       begin: sliderTheme.disabledThumbColor,
       end: sliderTheme.valueIndicatorColor,
     );
-    final Tween<double> slideUpTween = Tween<double>(
-      begin: 0.0,
-      end: _slideUpHeight,
-    );
+    final slideUpTween = Tween<double>(begin: 0.0, end: _slideUpHeight);
     final double size = _indicatorSize * sizeTween.evaluate(enableAnimation);
-    final Offset slideUpOffset = Offset(0.0, -slideUpTween.evaluate(activationAnimation));
+    final slideUpOffset = Offset(0.0, -slideUpTween.evaluate(activationAnimation));
     final Path thumbPath = _upTriangle(size, thumbCenter + slideUpOffset);
-    final Color paintColor = enableColor.evaluate(enableAnimation)!.withAlpha((255.0 * activationAnimation.value).round());
-    canvas.drawPath(
-      thumbPath,
-      Paint()..color = paintColor,
-    );
+    final Color paintColor = enableColor
+        .evaluate(enableAnimation)!
+        .withAlpha((255.0 * activationAnimation.value).round());
+    canvas.drawPath(thumbPath, Paint()..color = paintColor);
     canvas.drawLine(
-        thumbCenter,
-        thumbCenter + slideUpOffset,
-        Paint()
-          ..color = paintColor
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.0);
-    labelPainter.paint(canvas, thumbCenter + slideUpOffset + Offset(-labelPainter.width / 2.0, -labelPainter.height - 4.0));
+      thumbCenter,
+      thumbCenter + slideUpOffset,
+      Paint()
+        ..color = paintColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0,
+    );
+    labelPainter.paint(
+      canvas,
+      thumbCenter + slideUpOffset + Offset(-labelPainter.width / 2.0, -labelPainter.height - 4.0),
+    );
   }
 }
 
 class _SliderDemoState extends State<SliderDemo> {
   @override
   Widget build(BuildContext context) {
-    final List<ComponentDemoTabData> demos = <ComponentDemoTabData>[
+    const demos = <ComponentDemoTabData>[
       ComponentDemoTabData(
         tabName: 'SINGLE',
         description: 'Sliders containing 1 thumb',
@@ -229,7 +211,7 @@ class _SliderDemoState extends State<SliderDemo> {
       ),
     ];
 
-    return TabbedComponentDemoScaffold(
+    return const TabbedComponentDemoScaffold(
       title: 'Sliders',
       demos: demos,
       isScrollable: false,
@@ -239,6 +221,8 @@ class _SliderDemoState extends State<SliderDemo> {
 }
 
 class _Sliders extends StatefulWidget {
+  const _Sliders();
+
   @override
   _SlidersState createState() => _SlidersState();
 }
@@ -275,16 +259,13 @@ class _SlidersState extends State<_Sliders> {
                       }
                     },
                     keyboardType: TextInputType.number,
-                    controller: TextEditingController(
-                      text: _continuousValue.toStringAsFixed(0),
-                    ),
+                    controller: TextEditingController(text: _continuousValue.toStringAsFixed(0)),
                   ),
                 ),
               ),
               Slider.adaptive(
                 label: _continuousValue.toStringAsFixed(6),
                 value: _continuousValue,
-                min: 0.0,
                 max: 100.0,
                 onChanged: (double value) {
                   setState(() {
@@ -295,19 +276,15 @@ class _SlidersState extends State<_Sliders> {
               const Text('Continuous with Editable Numerical Value'),
             ],
           ),
-          Column(
+          const Column(
             mainAxisSize: MainAxisSize.min,
-            children: const <Widget>[
-              Slider.adaptive(value: 0.25, onChanged: null),
-              Text('Disabled'),
-            ],
+            children: <Widget>[Slider.adaptive(value: 0.25, onChanged: null), Text('Disabled')],
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Slider.adaptive(
                 value: _discreteValue,
-                min: 0.0,
                 max: 200.0,
                 divisions: 5,
                 label: '${_discreteValue.round()}',
@@ -334,11 +311,12 @@ class _SlidersState extends State<_Sliders> {
                   valueIndicatorColor: Colors.deepPurpleAccent,
                   thumbShape: _CustomThumbShape(),
                   valueIndicatorShape: _CustomValueIndicatorShape(),
-                  valueIndicatorTextStyle: theme.textTheme.bodyText1!.copyWith(color: theme.colorScheme.onSurface),
+                  valueIndicatorTextStyle: theme.textTheme.bodyLarge!.copyWith(
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
                 child: Slider(
                   value: _discreteCustomValue,
-                  min: 0.0,
                   max: 200.0,
                   divisions: 5,
                   semanticFormatterCallback: (double value) => value.round().toString(),
@@ -360,6 +338,8 @@ class _SlidersState extends State<_Sliders> {
 }
 
 class _RangeSliders extends StatefulWidget {
+  const _RangeSliders();
+
   @override
   _RangeSlidersState createState() => _RangeSlidersState();
 }
@@ -381,7 +361,6 @@ class _RangeSlidersState extends State<_RangeSliders> {
             children: <Widget>[
               RangeSlider(
                 values: _continuousValues,
-                min: 0.0,
                 max: 100.0,
                 onChanged: (RangeValues values) {
                   setState(() {
@@ -404,10 +383,12 @@ class _RangeSlidersState extends State<_RangeSliders> {
             children: <Widget>[
               RangeSlider(
                 values: _discreteValues,
-                min: 0.0,
                 max: 200.0,
                 divisions: 5,
-                labels: RangeLabels('${_discreteValues.start.round()}', '${_discreteValues.end.round()}'),
+                labels: RangeLabels(
+                  '${_discreteValues.start.round()}',
+                  '${_discreteValues.end.round()}',
+                ),
                 onChanged: (RangeValues values) {
                   setState(() {
                     _discreteValues = values;
@@ -433,10 +414,12 @@ class _RangeSlidersState extends State<_RangeSliders> {
                 ),
                 child: RangeSlider(
                   values: _discreteCustomValues,
-                  min: 0.0,
                   max: 200.0,
                   divisions: 5,
-                  labels: RangeLabels('${_discreteCustomValues.start.round()}', '${_discreteCustomValues.end.round()}'),
+                  labels: RangeLabels(
+                    '${_discreteCustomValues.start.round()}',
+                    '${_discreteCustomValues.end.round()}',
+                  ),
                   onChanged: (RangeValues values) {
                     setState(() {
                       _discreteCustomValues = values;

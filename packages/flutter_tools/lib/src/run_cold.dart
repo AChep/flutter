@@ -2,133 +2,117 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'dart:async';
 
-import 'package:meta/meta.dart';
-
-import 'base/common.dart';
+import 'base/dds.dart';
 import 'base/file_system.dart';
-import 'base/logger.dart';
 import 'build_info.dart';
-import 'device.dart';
-import 'globals_null_migrated.dart' as globals;
-import 'resident_devtools_handler.dart';
 import 'resident_runner.dart';
 import 'tracing.dart';
 import 'vmservice.dart';
 
-const String kFlutterTestOutputsDirEnvName = 'FLUTTER_TEST_OUTPUTS_DIR';
+const kFlutterTestOutputsDirEnvName = 'FLUTTER_TEST_OUTPUTS_DIR';
+
 class ColdRunner extends ResidentRunner {
   ColdRunner(
-    List<FlutterDevice> devices, {
-    @required String target,
-    @required DebuggingOptions debuggingOptions,
-    this.traceStartup = false,
-    this.awaitFirstFrameWhenTracing = true,
+    super.flutterDevices, {
+    required super.analytics,
+    required super.buildSystem,
+    required super.buildTargets,
+    required super.debuggingOptions,
+    required super.target,
+    required super.toolContext,
+    required super.xcode,
     this.applicationBinary,
-    bool ipv6 = false,
-    bool stayResident = true,
-    bool machine = false,
-    ResidentDevtoolsHandlerFactory devtoolsHandler = createDefaultHandler,
-  }) : super(
-          devices,
-          target: target,
-          debuggingOptions: debuggingOptions,
-          hotMode: false,
-          stayResident: stayResident,
-          ipv6: ipv6,
-          machine: machine,
-          devtoolsHandler: devtoolsHandler,
-        );
+    this.awaitFirstFrameWhenTracing = true,
+    super.dartBuilder,
+    super.machine,
+    super.stayResident,
+    this.traceStartup = false,
+  }) : super(hotMode: false);
 
   final bool traceStartup;
   final bool awaitFirstFrameWhenTracing;
-  final File applicationBinary;
-  bool _didAttach = false;
+  final File? applicationBinary;
+  var _didAttach = false;
 
   @override
   bool get canHotReload => false;
 
   @override
-  Logger get logger => globals.logger;
+  bool get reloadIsRestart => false;
 
   @override
-  FileSystem get fileSystem => globals.fs;
+  bool get supportsDetach => _didAttach;
 
   @override
   Future<int> run({
-    Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
-    bool enableDevTools = false,
-    String route,
+    Completer<DebugConnectionInfo>? connectionInfoCompleter,
+    Completer<void>? appStartedCompleter,
+    String? route,
   }) async {
     try {
-      for (final FlutterDevice device in flutterDevices) {
-        final int result = await device.runCold(
-          coldRunner: this,
-          route: route,
-        );
+      for (final FlutterDevice? device in flutterDevices) {
+        final int result = await device!.runCold(coldRunner: this, route: route);
         if (result != 0) {
           appFailedToStart();
           return result;
         }
       }
-    } on Exception catch (err) {
-      globals.printError(err.toString());
+    } on Exception catch (err, stack) {
+      logger.printError('$err\n$stack');
       appFailedToStart();
       return 1;
     }
 
-    // Connect to observatory.
+    // Connect to the VM Service.
     if (debuggingEnabled) {
       try {
-        await connectToServiceProtocol(allowExistingDdsInstance: false);
-      } on String catch (message) {
-        globals.printError(message);
+        await connectToServiceProtocol();
+      } on Exception catch (exception) {
+        logger.printError(exception.toString());
         appFailedToStart();
         return 2;
       }
     }
 
-    if (enableDevTools && debuggingEnabled) {
-      // The method below is guaranteed never to return a failing future.
-      unawaited(residentDevtoolsHandler.serveAndAnnounceDevTools(
-        devToolsServerAddress: debuggingOptions.devToolsServerAddress,
-        flutterDevices: flutterDevices,
-      ));
-    }
-
-    if (flutterDevices.first.observatoryUris != null) {
+    final FlutterDevice flutterDevice = flutterDevices.first;
+    if (flutterDevice.vmServiceUri != null) {
+      final FlutterVmService? vmService = flutterDevice.vmService;
+      final DartDevelopmentService dds = flutterDevice.device!.dds;
       // For now, only support one debugger connection.
-      connectionInfoCompleter?.complete(DebugConnectionInfo(
-        httpUri: flutterDevices.first.vmService.httpAddress,
-        wsUri: flutterDevices.first.vmService.wsAddress,
-      ));
+      connectionInfoCompleter?.complete(
+        DebugConnectionInfo(
+          httpUri: vmService!.httpAddress,
+          wsUri: vmService.wsAddress,
+          devToolsUri: dds.devToolsUri,
+          dtdUri: dds.dtdUri,
+        ),
+      );
     }
 
-    globals.printTrace('Application running.');
+    logger.printTrace('Application running.');
 
-    for (final FlutterDevice device in flutterDevices) {
-      if (device.vmService == null) {
+    for (final FlutterDevice? device in flutterDevices) {
+      if (device!.vmService == null) {
         continue;
       }
-      await device.initLogReader();
-      globals.printTrace('Connected to ${device.device.name}');
+      logger.printTrace('Connected to ${device.device!.displayName}');
     }
 
     if (traceStartup) {
       // Only trace startup for the first device.
       final FlutterDevice device = flutterDevices.first;
       if (device.vmService != null) {
-        globals.printStatus('Tracing startup on ${device.device.name}.');
-        final String outputPath = globals.platform.environment[kFlutterTestOutputsDirEnvName] ?? getBuildDirectory();
+        logger.printStatus('Tracing startup on ${device.device!.displayName}.');
+        final String outputPath =
+            platform.environment[kFlutterTestOutputsDirEnvName] ??
+            getBuildDirectory(config, fileSystem);
         await downloadStartupTrace(
-          device.vmService,
+          device.vmService!,
           awaitFirstFrame: awaitFirstFrameWhenTracing,
-          logger: globals.logger,
-          output: globals.fs.directory(outputPath),
+          logger: logger,
+          output: fileSystem.directory(outputPath),
         );
       }
       appFinished();
@@ -147,38 +131,23 @@ class ColdRunner extends ResidentRunner {
 
   @override
   Future<int> attach({
-    Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
-    bool allowExistingDdsInstance = false,
-    bool enableDevTools = false,
+    Completer<DebugConnectionInfo>? connectionInfoCompleter,
+    Completer<void>? appStartedCompleter,
+    bool needsFullRestart = true,
   }) async {
     _didAttach = true;
     try {
-      await connectToServiceProtocol(
-        getSkSLMethod: writeSkSL,
-        allowExistingDdsInstance: allowExistingDdsInstance,
-      );
+      await connectToServiceProtocol();
     } on Exception catch (error) {
-      globals.printError('Error connecting to the service protocol: $error');
+      logger.printError('Error connecting to the service protocol: $error');
       return 2;
     }
 
-    for (final FlutterDevice device in flutterDevices) {
-      await device.initLogReader();
-    }
-    for (final FlutterDevice device in flutterDevices) {
-      final List<FlutterView> views = await device.vmService.getFlutterViews();
-      for (final FlutterView view in views) {
-        globals.printTrace('Connected to $view.');
+    for (final FlutterDevice? device in flutterDevices) {
+      final List<FlutterView> views = await device!.vmService!.getFlutterViews();
+      for (final view in views) {
+        logger.printTrace('Connected to $view.');
       }
-    }
-
-    if (enableDevTools && debuggingEnabled) {
-      // The method below is guaranteed never to return a failing future.
-      unawaited(residentDevtoolsHandler.serveAndAnnounceDevTools(
-        devToolsServerAddress: debuggingOptions.devToolsServerAddress,
-        flutterDevices: flutterDevices,
-      ));
     }
 
     appStartedCompleter?.complete();
@@ -200,37 +169,18 @@ class ColdRunner extends ResidentRunner {
 
   @override
   Future<void> cleanupAtFinish() async {
-    for (final FlutterDevice flutterDevice in flutterDevices) {
-      await flutterDevice.device.dispose();
+    for (final FlutterDevice? flutterDevice in flutterDevices) {
+      await flutterDevice!.device!.dispose();
     }
-
-    await residentDevtoolsHandler.shutdown();
     await stopEchoingDeviceLog();
   }
 
   @override
-  void printHelp({ @required bool details }) {
-    globals.printStatus('Flutter run key commands.');
-    if (details) {
-      printHelpDetails();
-      commandHelp.hWithDetails.print();
-    } else {
-      commandHelp.hWithoutDetails.print();
-    }
-    if (_didAttach) {
-      commandHelp.d.print();
-    }
-    commandHelp.c.print();
-    commandHelp.q.print();
-    printDebuggerList();
-  }
-
-  @override
   Future<void> preExit() async {
-    for (final FlutterDevice device in flutterDevices) {
+    for (final FlutterDevice? device in flutterDevices) {
       // If we're running in release mode, stop the app using the device logic.
-      if (device.vmService == null) {
-        await device.device.stopApp(device.package, userIdentifier: device.userIdentifier);
+      if (device!.vmService == null) {
+        await device.device!.stopApp(device.package, userIdentifier: device.userIdentifier);
       }
     }
     await super.preExit();

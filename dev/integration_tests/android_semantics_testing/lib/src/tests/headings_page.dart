@@ -9,7 +9,7 @@ export 'headings_constants.dart';
 
 /// A test page with an app bar and some body text for testing heading flags.
 class HeadingsPage extends StatelessWidget {
-  const HeadingsPage({Key key}) : super(key: key);
+  const HeadingsPage({super.key});
 
   static const ValueKey<String> _appBarTitleKey = ValueKey<String>(appBarTitleKeyValue);
   static const ValueKey<String> _bodyTextKey = ValueKey<String>(bodyTextKeyValue);
@@ -19,11 +19,9 @@ class HeadingsPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         leading: const BackButton(key: ValueKey<String>('back')),
-        title: const Text('Heading', key: _appBarTitleKey),
+        title: Semantics(headingLevel: 1, child: const Text('Heading', key: _appBarTitleKey)),
       ),
-      body: const Center(
-        child: Text('Body text', key: _bodyTextKey),
-      ),
+      body: const Center(child: Text('Body text', key: _bodyTextKey)),
     );
   }
 }

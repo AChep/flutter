@@ -6,21 +6,9 @@ import 'package:flutter/material.dart';
 
 import '../../gallery/demo.dart';
 
-const List<String> _defaultMaterialsA = <String>[
-  'poker',
-  'tortilla',
-  'fish and',
-  'micro',
-  'wood',
-];
+const List<String> _defaultMaterialsA = <String>['poker', 'tortilla', 'fish and', 'micro', 'wood'];
 
-const List<String> _defaultMaterialsB = <String>[
-  'apple',
-  'orange',
-  'tomato',
-  'grape',
-  'lettuce',
-];
+const List<String> _defaultMaterialsB = <String>['apple', 'orange', 'tomato', 'grape', 'lettuce'];
 
 const List<String> _defaultActions = <String>[
   'flake',
@@ -46,21 +34,9 @@ const Map<String, String> _results = <String, String>{
   'eat': 'eating',
 };
 
-const List<String> _defaultToolsA = <String>[
-  'hammer',
-  'chisel',
-  'fryer',
-  'fabricator',
-  'customer',
-];
+const List<String> _defaultToolsA = <String>['hammer', 'chisel', 'fryer', 'fabricator', 'customer'];
 
-const List<String> _defaultToolsB = <String>[
-  'keyboard',
-  'mouse',
-  'monitor',
-  'printer',
-  'cable',
-];
+const List<String> _defaultToolsB = <String>['keyboard', 'mouse', 'monitor', 'printer', 'cable'];
 
 const Map<String, String> _avatars = <String, String>{
   'hammer': 'people/square/ali.png',
@@ -87,11 +63,7 @@ const Map<String, Set<String>> _materialActions = <String, Set<String>>{
 };
 
 class _ChipsTile extends StatelessWidget {
-  const _ChipsTile({
-    Key? key,
-    this.label,
-    this.children,
-  }) : super(key: key);
+  const _ChipsTile({this.label, this.children});
 
   final String? label;
   final List<Widget>? children;
@@ -112,10 +84,7 @@ class _ChipsTile extends StatelessWidget {
           if (children!.isNotEmpty)
             Wrap(
               children: children!.map<Widget>((Widget chip) {
-                return Padding(
-                  padding: const EdgeInsets.all(2.0),
-                  child: chip,
-                );
+                return Padding(padding: const EdgeInsets.all(2.0), child: chip);
               }).toList(),
             )
           else
@@ -125,7 +94,11 @@ class _ChipsTile extends StatelessWidget {
                 alignment: Alignment.center,
                 constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
                 padding: const EdgeInsets.all(8.0),
-                child: Text('None', style: Theme.of(context).textTheme.caption!.copyWith(fontStyle: FontStyle.italic)),
+                child: Text(
+                  'None',
+                  style: Theme.of(context).textTheme.bodySmall!
+                      .copyWith(fontStyle: FontStyle.italic),
+                ),
               ),
             ),
         ],
@@ -135,7 +108,7 @@ class _ChipsTile extends StatelessWidget {
 }
 
 class ChipDemo extends StatefulWidget {
-  const ChipDemo({Key? key}) : super(key: key);
+  const ChipDemo({super.key});
 
   static const String routeName = '/material/chip';
 
@@ -195,25 +168,22 @@ class _ChipDemoState extends State<ChipDemo> {
   }
 
   // This converts a String to a unique color, based on the hash value of the
-  // String object.  It takes the bottom 16 bits of the hash, and uses that to
+  // String object. It takes the bottom 16 bits of the hash, and uses that to
   // pick a hue for an HSV color, and then creates the color (with a preset
-  // saturation and value).  This means that any unique strings will also have
+  // saturation and value). This means that any unique strings will also have
   // unique colors, but they'll all be readable, since they have the same
   // saturation and value.
   Color _nameToColor(String name, ThemeData theme) {
     assert(name.length > 1);
     final int hash = name.hashCode & 0xffff;
     final double hue = (360.0 * hash / (1 << 15)) % 360.0;
-    final double themeValue = HSVColor.fromColor(theme.backgroundColor).value;
+    final double themeValue = HSVColor.fromColor(theme.colorScheme.surface).value;
     return HSVColor.fromAHSV(1.0, hue, 0.4, themeValue).toColor();
   }
 
   AssetImage _nameToAvatar(String name) {
     assert(_avatars.containsKey(name));
-    return AssetImage(
-      _avatars[name]!,
-      package: 'flutter_gallery_assets',
-    );
+    return AssetImage(_avatars[name]!, package: 'flutter_gallery_assets');
   }
 
   String _createResult() {
@@ -242,16 +212,15 @@ class _ChipDemoState extends State<ChipDemo> {
 
     final List<Widget> inputChips = _toolsA.map<Widget>((String name) {
       return InputChip(
-          key: ValueKey<String>(name),
-          avatar: CircleAvatar(
-            backgroundImage: _nameToAvatar(name),
-          ),
-          label: Text(_capitalize(name)),
-          onDeleted: () {
-            setState(() {
-              _removeTool(name);
-            });
+        key: ValueKey<String>(name),
+        avatar: CircleAvatar(backgroundImage: _nameToAvatar(name)),
+        label: Text(_capitalize(name)),
+        onDeleted: () {
+          setState(() {
+            _removeTool(name);
           });
+        },
+      );
     }).toList();
 
     final List<Widget> choiceChips = _materialsB.map<Widget>((String name) {
@@ -287,7 +256,7 @@ class _ChipDemoState extends State<ChipDemo> {
       );
     }).toList();
 
-    Set<String> allowedActions = <String>{};
+    var allowedActions = <String>{};
     if (_selectedMaterial.isNotEmpty) {
       for (final String tool in _selectedTools) {
         allowedActions.addAll(_toolActions[tool]!);
@@ -306,7 +275,7 @@ class _ChipDemoState extends State<ChipDemo> {
       );
     }).toList();
 
-    final List<Widget> tiles = <Widget>[
+    final tiles = <Widget>[
       const SizedBox(height: 8.0, width: 0.0),
       _ChipsTile(label: 'Available Materials (Chip)', children: chips),
       _ChipsTile(label: 'Available Tools (InputChip)', children: inputChips),
@@ -316,12 +285,7 @@ class _ChipDemoState extends State<ChipDemo> {
       const Divider(),
       Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Center(
-          child: Text(
-            _createResult(),
-            style: theme.textTheme.headline6,
-          ),
-        ),
+        child: Center(child: Text(_createResult(), style: theme.textTheme.titleLarge)),
       ),
     ];
 
@@ -344,11 +308,12 @@ class _ChipDemoState extends State<ChipDemo> {
         data: _showShapeBorder
             ? theme.chipTheme.copyWith(
                 shape: BeveledRectangleBorder(
-                side: const BorderSide(width: 0.66, style: BorderStyle.solid, color: Colors.grey),
-                borderRadius: BorderRadius.circular(10.0),
-              ))
+                  side: const BorderSide(width: 0.66, color: Colors.grey),
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+              )
             : theme.chipTheme,
-        child: Scrollbar(child: ListView(children: tiles)),
+        child: Scrollbar(child: ListView(primary: true, children: tiles)),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => setState(_reset),

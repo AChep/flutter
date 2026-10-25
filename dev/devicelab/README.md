@@ -7,29 +7,37 @@ the tests are referred to as "tasks" in the API, but since we primarily use it
 for testing, this document refers to them as "tests".
 
 Current statuses for the devicelab are available at
-https://flutter-dashboard.appspot.com/#/build. See [dashboard user guide](https://github.com/flutter/cocoon/blob/master/app_flutter/USER_GUIDE.md)
+<https://flutter-dashboard.appspot.com/#/build>. See [dashboard user
+guide](https://github.com/flutter/cocoon/blob/main/dashboard/USER_GUIDE.md)
 for information on using the dashboards.
 
 ## Table of Contents
+
 * [How the DeviceLab runs tests](#how-the-devicelab-runs-tests)
 * [Running tests locally](#running-tests-locally)
 * [Writing tests](#writing-tests)
-* [Adding tests to continuous integration](#adding-tests-to-continuous-integration)
+* [Adding tests to continuous
+  integration](#adding-tests-to-continuous-integration)
 * [Adding tests to presubmit](#adding-tests-to-presubmit)
-
+* [Migrating to build and test model](#migrating-to-build-and-test-model)
 
 ## How the DeviceLab runs tests
 
-DeviceLab tests are run against physical devices in Flutter's lab (the "DeviceLab").
+DeviceLab tests are run against physical devices in Flutter's lab (the
+"DeviceLab").
 
-Tasks specify the type of device they are to run on (`linux_android`, `mac_ios`, `mac_android`, `windows_android`, etc).
-When a device in the lab is free, it will pickup tasks that need to be completed.
+Tasks specify the type of device they are to run on (`linux_android`, `mac_ios`,
+`mac_android`, `windows_android`, etc). When a device in the lab is free, it
+will pick up tasks that need to be completed.
 
-1. If the task succeeds, the test runner reports the success and uploads its performance metrics to Flutter's infrastructure. Not
-all tasks record performance metrics.
-2. If task fails, an auto rerun happens. Whenever the last run succeeds, the task will be reported as a success. For this case,
-a flake will be flagged and populated to the test result.
-3. If the task fails in all reruns, the test runner reports the failure to Flutter's infrastructure and no performance metrics are collected
+1. If the task succeeds, the test runner reports the success and uploads its
+performance metrics to Flutter's infrastructure. Not all tasks record
+performance metrics.
+2. If task fails, an auto rerun happens. Whenever the last run succeeds, the
+task will be reported as a success. For this case, a flake will be flagged and
+populated to the test result.
+3. If the task fails in all reruns, the test runner reports the failure to
+   Flutter's infrastructure and no performance metrics are collected
 
 ## Running tests locally
 
@@ -44,13 +52,20 @@ You must set the `ANDROID_SDK_ROOT` environment variable to run
 tests on Android. If you have a local build of the Flutter engine, then you have
 a copy of the Android SDK at `.../engine/src/third_party/android_tools/sdk`.
 
-You can find where your Android SDK is using `flutter doctor`.
+You can find where your Android SDK is using `flutter doctor -v`.
 
 ### Warnings
 
-Running the devicelab will do things to your environment.
+Running DeviceLab tests locally will do things to your environment.
 
-Notably, it will start and stop Gradle, for instance.
+Notably:
+
+- It will automatically start and stop Gradle on your machine
+- It will automatically reboot your target Android or iOS device after a certain amount of tests before running any additional tests on it. See the `checkForRebootRequired()` in `flutter/dev/devicelab/lib/framework/framework.dart` and `device.reboot()` in `flutter/dev/devicelab/lib/framework/devices.dart` for more.
+
+### Running tests in `test/...`
+
+`dart test test/{NAME_OF_TEST}`
 
 ### Running specific tests
 
@@ -58,20 +73,24 @@ To run a test, use option `-t` (`--task`):
 
 ```sh
 # from the .../flutter/dev/devicelab directory
-../../bin/cache/dart-sdk/bin/dart bin/test_runner.dart test -t {NAME_OR_PATH_OF_TEST}
+../../bin/cache/dart-sdk/bin/dart bin/test_runner.dart test -t {NAME_OF_TEST}
 ```
 
-Where `NAME_OR_PATH_OF_TEST` can be either of:
-
-- the _name_ of a task, which is a file's basename in `bin/tasks`. Example: `complex_layout__start_up`.
-- the path to a Dart _file_ corresponding to a task, which resides in `bin/tasks`.
-  Tip: most shells support path auto-completion using the Tab key. Example:
-  `bin/tasks/complex_layout__start_up.dart`.
+Where `NAME_OR_PATH_OF_TEST` is the name of a task, which is a file's
+basename in `bin/tasks`. Example: `complex_layout__start_up`.
 
 To run multiple tests, repeat option `-t` (`--task`) multiple times:
 
 ```sh
 ../../bin/cache/dart-sdk/bin/dart bin/run.dart -t test1 -t test2 -t test3
+```
+
+### Running tests without automatic retries
+
+By default, DeviceLab tests have an automatic retry logic built in. Any failing tests will be retried 2 additional times. This can be skipped by specifying the `--exit` option:
+
+```sh
+../../bin/cache/dart-sdk/bin/dart bin/test_runner.dart test --exit -t {NAME_OF_TEST}
 ```
 
 ### Running tests against a local engine build
@@ -82,10 +101,12 @@ flags to `bin/run.dart`:
 ```sh
 ../../bin/cache/dart-sdk/bin/dart bin/run.dart --task=[some_task] \
   --local-engine-src-path=[path_to_local]/engine/src \
-  --local-engine=[local_engine_architecture]
+  --local-engine=[local_engine_architecture] \
+  --local-engine-host=[local_engine_host_architecture]
 ```
 
-An example of a local engine architecture is `android_debug_unopt_x86`.
+An example of a local engine architecture is `android_debug_unopt_x86` and
+an example of a local engine host architecture is `host_debug_unopt`.
 
 ### Running an A/B test for engine changes
 
@@ -102,24 +123,27 @@ Example:
 ```sh
 ../../bin/cache/dart-sdk/bin/dart bin/run.dart --ab=10 \
   --local-engine=host_debug_unopt \
+  --local-engine-host=host_debug_unopt \
   -t bin/tasks/web_benchmarks_canvaskit.dart
 ```
 
 The `--ab=10` tells the runner to run an A/B test 10 times.
 
-`--local-engine=host_debug_unopt` tells the A/B test to use the `host_debug_unopt`
-engine build. `--local-engine` is required for A/B test.
+`--local-engine=host_debug_unopt` tells the A/B test to use the
+`host_debug_unopt` engine build. `--local-engine-host=host_debug_unopt` uses
+the same engine build to run the `frontend_server` (in this example).
+`--local-engine` is required for A/B test.
 
-`--ab-result-file=filename` can be used to provide an alternate location to output
-the JSON results file (defaults to `ABresults#.json`). A single `#` character can be
-used to indicate where to insert a serial number if a file with that name already
-exists, otherwise, the file will be overwritten.
+`--ab-result-file=filename` can be used to provide an alternate location to
+output the JSON results file (defaults to `ABresults#.json`). A single `#`
+character can be used to indicate where to insert a serial number if a file with
+that name already exists, otherwise, the file will be overwritten.
 
 A/B can run exactly one task. Multiple tasks are not supported.
 
 Example output:
 
-```
+```text
 Score	Average A (noise)	Average B (noise)	Speed-up
 bench_card_infinite_scroll.canvaskit.drawFrameDuration.average	2900.20 (8.44%)	2426.70 (8.94%)	1.20x
 bench_card_infinite_scroll.canvaskit.totalUiFrame.average	4964.00 (6.29%)	4098.00 (8.03%)	1.21x
@@ -142,13 +166,14 @@ Summarize tool example:
     ABresults.json ABresults1.json ABresults2.json ...
 ```
 
-`--[no-]tsv-table` tells the tool to print the summary in a table with tabs for easy spreadsheet
-entry. (defaults to on)
+`--[no-]tsv-table` tells the tool to print the summary in a table with tabs for
+easy spreadsheet entry. (defaults to on)
 
-`--[no-]raw-summary` tells the tool to print all per-run data collected by the A/B test formatted
-with tabs for easy spreadsheet entry. (defaults to on)
+`--[no-]raw-summary` tells the tool to print all per-run data collected by the
+A/B test formatted with tabs for easy spreadsheet entry. (defaults to on)
 
-Multiple trailing filenames can be specified and each such results file will be processed in turn.
+Multiple trailing filenames can be specified and each such results file will be
+processed in turn.
 
 ## Reproducing broken builds locally
 
@@ -206,27 +231,44 @@ There are several PRs needed to add a DeviceLab task to CI.
 _TASK_- the name of your test that also matches the name of the
   file in `bin/tasks` without the `.dart` extension.
 
-1. Add prod builder to [flutter/infra devicelab_config.star](https://github.com/flutter/infra/blob/master/config/devicelab_config.star)
-  - Example PR: https://github.com/flutter/infra/pull/401/files
-  - This will need to soak for 15 minutes after merged to propagate (should show up in [LUCI console](https://ci.chromium.org/p/flutter/g/devicelab/console))
-  - There are various lists for the different testbeds a test can run on
-2. Add task to [flutter/flutter prod_builders.json](https://github.com/flutter/flutter/blob/master/dev/prod_builders.json)
-  - Example PR: https://github.com/flutter/flutter/pull/79913/files
-  - Set `flaky: true` for validation before blocking tree
-3. After 10 green runs, update [flutter/flutter prod_builders.json](https://github.com/flutter/flutter/blob/master/dev/prod_builders.json) to `flaky:false`
+1. Add target to
+   [.ci.yaml](https://github.com/flutter/flutter/blob/main/.ci.yaml)
+   * Mirror an existing one that has the recipe `devicelab_drone`
 
-If your test needs to run on multiple operating systems, create a separate test
-for each operating system.
+If your test needs to run on multiple operating systems, create a separate
+target for each operating system.
 
 ## Adding tests to presubmit
 
-Flutter's DeviceLab does not currently have capacity to run tests against physical devices in presubmit.
+Flutter's DeviceLab has a limited capacity in presubmit. File a `team-infra`
+issue to investigate feasibility of adding a test to presubmit.
 
-Note that DeviceLab tests should generally require a tethered device. If you are adding host-only tests, considering adding your test to `packages/flutter_tools/test/integration.shard`.  Example: https://github.com/flutter/flutter/pull/73577/files"
+## Migrating to build and test model
 
-1. Add try builder to [flutter/infra devicelab_config.star](https://github.com/flutter/infra/blob/master/config/devicelab_config.star)
-  - Example PR: https://github.com/flutter/infra/pull/401/files
-  - This will need to soak for 15 minutes after merged to propagate
-  - There are various lists for the different testbeds a test can run on
-2. Add task to [flutter/flutter try_builders.json](https://github.com/flutter/flutter/blob/master/dev/try_builders.json)
-  - Example PR: https://github.com/flutter/flutter/pull/79913/files
+To better utilize limited DeviceLab testbed resources and speed up commit validation
+time, it is now supported to separate building artifacts (.apk/.app) from testing them.
+The artifact will be built on a host only bot, a VM or physical bot without a device,
+and the test will run based on the artifact against a testbed with a device.
+
+Steps:
+
+1. Update the task class to extend [`BuildTestTask`](https://github.com/flutter/flutter/blob/main/dev/devicelab/lib/tasks/build_test_task.dart)
+   - Override function `getBuildArgs`
+   - Override function `getTestArgs`
+   - Override function `parseTaskResult`
+   - Override function `getApplicationBinaryPath`
+2. Update the `bin/tasks/{TEST}.dart` to point to the new task class
+3. Validate the task locally
+   - build only: `dart bin/test_runner.dart test -t {NAME_OR_PATH_OF_TEST} --task-args build --task-args application-binary-path={PATH_TO_ARTIFACT}`
+   - test only: `dart bin/test_runner.dart test -t {NAME_OR_PATH_OF_TEST} --task-args test --task-args application-binary-path={PATH_TO_ARTIFACT}`
+4. Add tasks to continuous integration
+   - Mirror a target with platform `Linux_build_test` or `Mac_build_test`
+   - The only difference from regular targets is the artifact property: if omitted, it will use the `task_name`.
+5. Once validated in CI, enable the target in `PROD` by removing `bringup: true` and deleting the old target entry without build+test model.
+
+Take gallery tasks for example:
+
+1. Linux android
+   - Separating PR: https://github.com/flutter/flutter/pull/103550
+   - Switching PR: https://github.com/flutter/flutter/pull/110533
+2. Mac iOS: https://github.com/flutter/flutter/pull/111164

@@ -10,8 +10,9 @@ const String _kEndTag = '// END';
 Map<String?, String>? _exampleCode;
 
 Future<String?> getExampleCode(String? tag, AssetBundle bundle) async {
-  if (_exampleCode == null)
+  if (_exampleCode == null) {
     await _parseExampleCode(bundle);
+  }
   return _exampleCode![tag];
 }
 
@@ -24,7 +25,7 @@ Future<void> _parseExampleCode(AssetBundle bundle) async {
   List<String>? codeBlock;
   String? codeTag;
 
-  for (final String line in lines) {
+  for (final line in lines) {
     if (codeBlock == null) {
       // Outside a block.
       if (line.startsWith(_kStartTag)) {

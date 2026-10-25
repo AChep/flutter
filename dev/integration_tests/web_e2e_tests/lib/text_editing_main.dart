@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, this.title}) : super(key: key);
+  const MyHomePage({super.key, this.title});
 
   final String? title;
 
@@ -34,25 +34,19 @@ class _MyHomePageState extends State<MyHomePage> {
   // Controller with no initial value;
   final TextEditingController _emptyController = TextEditingController();
 
-  final TextEditingController _controller =
-      TextEditingController(text: 'Text1');
+  final TextEditingController _controller = TextEditingController(text: 'Text1');
 
-  final TextEditingController _controller2 =
-      TextEditingController(text: 'Text2');
+  final TextEditingController _controller2 = TextEditingController(text: 'Text2');
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title ?? ''),
-      ),
+      appBar: AppBar(title: Text(widget.title ?? '')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'Text Editing Test 1',
-            ),
+            const Text('Text Editing Test 1'),
             TextFormField(
               key: const Key('empty-input'),
               enabled: true,
@@ -62,9 +56,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 labelText: 'Empty Input Field:',
               ),
             ),
-            const Text(
-              'Text Editing Test 2',
-            ),
+            const Text('Text Editing Test 2'),
             TextFormField(
               key: const Key('input'),
               enabled: true,
@@ -74,9 +66,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 labelText: 'Text Input Field:',
               ),
             ),
-            const Text(
-              'Text Editing Test 3',
-            ),
+            const Text('Text Editing Test 3'),
             TextFormField(
               key: const Key('input2'),
               enabled: true,
@@ -90,10 +80,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 setState(() => infoText = 'enter pressed');
               },
             ),
-            Text(
-              infoText,
-              key: const Key('text'),
-            ),
+            Text(infoText, key: const Key('text')),
             const Padding(
               padding: EdgeInsets.all(12.0),
               child: SelectableText(

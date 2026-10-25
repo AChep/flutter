@@ -2,10 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
-import 'package:flutter_tools/src/base/common.dart';
 
 late Process daemon;
 
@@ -23,13 +22,15 @@ Future<void> main() async {
   print('daemon process started, pid: ${daemon.pid}');
 
   daemon.stdout
-    .transform<String>(utf8.decoder)
-    .transform<String>(const LineSplitter())
-    .listen((String line) => print('<== $line'));
+      .transform<String>(utf8.decoder)
+      .transform<String>(const LineSplitter())
+      .listen((String line) => print('<== $line'));
   daemon.stderr.listen(stderr.add);
 
   stdout.write('> ');
-  stdin.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen((String line) {
+  stdin.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen((
+    String line,
+  ) {
     final List<String> words = line.split(' ');
 
     if (line == 'version' || line == 'v') {
@@ -72,8 +73,7 @@ Future<void> main() async {
         'method': 'emulator.launch',
         'params': <String, dynamic>{
           'emulatorId': words[1],
-          if (words.contains('coldBoot'))
-            'coldBoot': true
+          if (words.contains('coldBoot')) 'coldBoot': true,
         },
       });
     } else if (line == 'enable') {
@@ -85,17 +85,19 @@ Future<void> main() async {
   });
 
   // Print in the callback can't fail.
-  unawaited(daemon.exitCode.then<int>((int code) {
-    print('daemon exiting ($code)');
-    exit(code);
-  }));
+  unawaited(
+    daemon.exitCode.then<int>((int code) {
+      print('daemon exiting ($code)');
+      exit(code);
+    }),
+  );
 }
 
-int id = 0;
+int _id = 0;
 
 void _send(Map<String, dynamic> map) {
-  map['id'] = id++;
-  final String str = '[${json.encode(map)}]';
+  map['id'] = _id++;
+  final str = '[${json.encode(map)}]';
   daemon.stdin.writeln(str);
   print('==> $str');
 }

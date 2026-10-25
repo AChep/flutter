@@ -10,11 +10,14 @@ import 'package:flutter/widgets.dart';
 import 'bottom_navigation_bar.dart';
 import 'theme.dart';
 
+// Examples can assume:
+// late BuildContext context;
+
 /// Defines default property values for descendant [BottomNavigationBar]
 /// widgets.
 ///
 /// Descendant widgets obtain the current [BottomNavigationBarThemeData] object
-/// using `BottomNavigationBarTheme.of(context)`. Instances of
+/// using [BottomNavigationBarTheme.of]. Instances of
 /// [BottomNavigationBarThemeData] can be customized with
 /// [BottomNavigationBarThemeData.copyWith].
 ///
@@ -45,6 +48,7 @@ class BottomNavigationBarThemeData with Diagnosticable {
     this.type,
     this.enableFeedback,
     this.landscapeLayout,
+    this.mouseCursor,
   });
 
   /// The color of the [BottomNavigationBar] itself.
@@ -78,13 +82,13 @@ class BottomNavigationBarThemeData with Diagnosticable {
   final IconThemeData? unselectedIconTheme;
 
   /// The color of the selected [BottomNavigationBarItem.icon] and
-  /// [BottomNavigationBarItem.title].
+  /// [BottomNavigationBarItem.label].
   ///
   /// See [BottomNavigationBar.selectedItemColor].
   final Color? selectedItemColor;
 
   /// The color of the unselected [BottomNavigationBarItem.icon] and
-  /// [BottomNavigationBarItem.title]s.
+  /// [BottomNavigationBarItem.label]s.
   ///
   /// See [BottomNavigationBar.unselectedItemColor].
   final Color? unselectedItemColor;
@@ -124,6 +128,9 @@ class BottomNavigationBarThemeData with Diagnosticable {
   /// If non-null, overrides the [BottomNavigationBar.landscapeLayout] property.
   final BottomNavigationBarLandscapeLayout? landscapeLayout;
 
+  /// If specified, overrides the default value of [BottomNavigationBar.mouseCursor].
+  final WidgetStateProperty<MouseCursor?>? mouseCursor;
+
   /// Creates a copy of this object but with the given fields replaced with the
   /// new values.
   BottomNavigationBarThemeData copyWith({
@@ -139,7 +146,8 @@ class BottomNavigationBarThemeData with Diagnosticable {
     bool? showUnselectedLabels,
     BottomNavigationBarType? type,
     bool? enableFeedback,
-    BottomNavigationBarLandscapeLayout? landscapeLayout
+    BottomNavigationBarLandscapeLayout? landscapeLayout,
+    WidgetStateProperty<MouseCursor?>? mouseCursor,
   }) {
     return BottomNavigationBarThemeData(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -155,16 +163,21 @@ class BottomNavigationBarThemeData with Diagnosticable {
       type: type ?? this.type,
       enableFeedback: enableFeedback ?? this.enableFeedback,
       landscapeLayout: landscapeLayout ?? this.landscapeLayout,
+      mouseCursor: mouseCursor ?? this.mouseCursor,
     );
   }
 
   /// Linearly interpolate between two [BottomNavigationBarThemeData].
   ///
-  /// The argument `t` must not be null.
-  ///
   /// {@macro dart.ui.shadow.lerp}
-  static BottomNavigationBarThemeData lerp(BottomNavigationBarThemeData? a, BottomNavigationBarThemeData? b, double t) {
-    assert(t != null);
+  static BottomNavigationBarThemeData lerp(
+    BottomNavigationBarThemeData? a,
+    BottomNavigationBarThemeData? b,
+    double t,
+  ) {
+    if (identical(a, b) && a != null) {
+      return a;
+    }
     return BottomNavigationBarThemeData(
       backgroundColor: Color.lerp(a?.backgroundColor, b?.backgroundColor, t),
       elevation: lerpDouble(a?.elevation, b?.elevation, t),
@@ -179,48 +192,51 @@ class BottomNavigationBarThemeData with Diagnosticable {
       type: t < 0.5 ? a?.type : b?.type,
       enableFeedback: t < 0.5 ? a?.enableFeedback : b?.enableFeedback,
       landscapeLayout: t < 0.5 ? a?.landscapeLayout : b?.landscapeLayout,
+      mouseCursor: t < 0.5 ? a?.mouseCursor : b?.mouseCursor,
     );
   }
 
   @override
-  int get hashCode {
-    return hashValues(
-      backgroundColor,
-      elevation,
-      selectedIconTheme,
-      unselectedIconTheme,
-      selectedItemColor,
-      unselectedItemColor,
-      selectedLabelStyle,
-      unselectedLabelStyle,
-      showSelectedLabels,
-      showUnselectedLabels,
-      type,
-      enableFeedback,
-      landscapeLayout,
-    );
-  }
+  int get hashCode => Object.hash(
+    backgroundColor,
+    elevation,
+    selectedIconTheme,
+    unselectedIconTheme,
+    selectedItemColor,
+    unselectedItemColor,
+    selectedLabelStyle,
+    unselectedLabelStyle,
+    showSelectedLabels,
+    showUnselectedLabels,
+    type,
+    enableFeedback,
+    landscapeLayout,
+    mouseCursor,
+  );
 
   @override
   bool operator ==(Object other) {
-    if (identical(this, other))
+    if (identical(this, other)) {
       return true;
-    if (other.runtimeType != runtimeType)
+    }
+    if (other.runtimeType != runtimeType) {
       return false;
-    return other is BottomNavigationBarThemeData
-        && other.backgroundColor == backgroundColor
-        && other.elevation == elevation
-        && other.selectedIconTheme == selectedIconTheme
-        && other.unselectedIconTheme == unselectedIconTheme
-        && other.selectedItemColor == selectedItemColor
-        && other.unselectedItemColor == unselectedItemColor
-        && other.selectedLabelStyle == selectedLabelStyle
-        && other.unselectedLabelStyle == unselectedLabelStyle
-        && other.showSelectedLabels == showSelectedLabels
-        && other.showUnselectedLabels == showUnselectedLabels
-        && other.type == type
-        && other.enableFeedback == enableFeedback
-        && other.landscapeLayout == landscapeLayout;
+    }
+    return other is BottomNavigationBarThemeData &&
+        other.backgroundColor == backgroundColor &&
+        other.elevation == elevation &&
+        other.selectedIconTheme == selectedIconTheme &&
+        other.unselectedIconTheme == unselectedIconTheme &&
+        other.selectedItemColor == selectedItemColor &&
+        other.unselectedItemColor == unselectedItemColor &&
+        other.selectedLabelStyle == selectedLabelStyle &&
+        other.unselectedLabelStyle == unselectedLabelStyle &&
+        other.showSelectedLabels == showSelectedLabels &&
+        other.showUnselectedLabels == showUnselectedLabels &&
+        other.type == type &&
+        other.enableFeedback == enableFeedback &&
+        other.landscapeLayout == landscapeLayout &&
+        other.mouseCursor == mouseCursor;
   }
 
   @override
@@ -228,17 +244,54 @@ class BottomNavigationBarThemeData with Diagnosticable {
     super.debugFillProperties(properties);
     properties.add(ColorProperty('backgroundColor', backgroundColor, defaultValue: null));
     properties.add(DoubleProperty('elevation', elevation, defaultValue: null));
-    properties.add(DiagnosticsProperty<IconThemeData>('selectedIconTheme', selectedIconTheme, defaultValue: null));
-    properties.add(DiagnosticsProperty<IconThemeData>('unselectedIconTheme', unselectedIconTheme, defaultValue: null));
+    properties.add(
+      DiagnosticsProperty<IconThemeData>(
+        'selectedIconTheme',
+        selectedIconTheme,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<IconThemeData>(
+        'unselectedIconTheme',
+        unselectedIconTheme,
+        defaultValue: null,
+      ),
+    );
     properties.add(ColorProperty('selectedItemColor', selectedItemColor, defaultValue: null));
     properties.add(ColorProperty('unselectedItemColor', unselectedItemColor, defaultValue: null));
-    properties.add(DiagnosticsProperty<TextStyle>('selectedLabelStyle', selectedLabelStyle, defaultValue: null));
-    properties.add(DiagnosticsProperty<TextStyle>('unselectedLabelStyle', unselectedLabelStyle, defaultValue: null));
-    properties.add(DiagnosticsProperty<bool>('showSelectedLabels', showSelectedLabels, defaultValue: null));
-    properties.add(DiagnosticsProperty<bool>('showUnselectedLabels', showUnselectedLabels, defaultValue: null));
+    properties.add(
+      DiagnosticsProperty<TextStyle>('selectedLabelStyle', selectedLabelStyle, defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<TextStyle>(
+        'unselectedLabelStyle',
+        unselectedLabelStyle,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<bool>('showSelectedLabels', showSelectedLabels, defaultValue: null),
+    );
+    properties.add(
+      DiagnosticsProperty<bool>('showUnselectedLabels', showUnselectedLabels, defaultValue: null),
+    );
     properties.add(DiagnosticsProperty<BottomNavigationBarType>('type', type, defaultValue: null));
     properties.add(DiagnosticsProperty<bool>('enableFeedback', enableFeedback, defaultValue: null));
-    properties.add(DiagnosticsProperty<BottomNavigationBarLandscapeLayout>('landscapeLayout', landscapeLayout, defaultValue: null));
+    properties.add(
+      DiagnosticsProperty<BottomNavigationBarLandscapeLayout>(
+        'landscapeLayout',
+        landscapeLayout,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<MouseCursor?>>(
+        'mouseCursor',
+        mouseCursor,
+        defaultValue: null,
+      ),
+    );
   }
 }
 
@@ -260,13 +313,7 @@ class BottomNavigationBarThemeData with Diagnosticable {
 class BottomNavigationBarTheme extends InheritedWidget {
   /// Constructs a bottom navigation bar theme that configures all descendant
   /// [BottomNavigationBar] widgets.
-  ///
-  /// The [data] must not be null.
-  const BottomNavigationBarTheme({
-    Key? key,
-    required this.data,
-    required Widget child,
-  }) : assert(data != null), super(key: key, child: child);
+  const BottomNavigationBarTheme({super.key, required this.data, required super.child});
 
   /// The properties used for all descendant [BottomNavigationBar] widgets.
   final BottomNavigationBarThemeData data;
@@ -282,7 +329,8 @@ class BottomNavigationBarTheme extends InheritedWidget {
   /// BottomNavigationBarThemeData theme = BottomNavigationBarTheme.of(context);
   /// ```
   static BottomNavigationBarThemeData of(BuildContext context) {
-    final BottomNavigationBarTheme? bottomNavTheme = context.dependOnInheritedWidgetOfExactType<BottomNavigationBarTheme>();
+    final BottomNavigationBarTheme? bottomNavTheme = context
+        .dependOnInheritedWidgetOfExactType<BottomNavigationBarTheme>();
     return bottomNavTheme?.data ?? Theme.of(context).bottomNavigationBarTheme;
   }
 

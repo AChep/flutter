@@ -9,24 +9,21 @@ import 'package:flutter/material.dart';
 // This tests whether the Opacity layer raster cache works with color filters.
 // See https://github.com/flutter/flutter/issues/51975.
 class ColorFilterAndFadePage extends StatefulWidget {
-  const ColorFilterAndFadePage({Key? key}) : super(key: key);
+  const ColorFilterAndFadePage({super.key});
 
   @override
   State<ColorFilterAndFadePage> createState() => _ColorFilterAndFadePageState();
 }
 
-class _ColorFilterAndFadePageState extends State<ColorFilterAndFadePage> with TickerProviderStateMixin {
+class _ColorFilterAndFadePageState extends State<ColorFilterAndFadePage>
+    with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final Widget shadowWidget = _ShadowWidget(
       width: 24,
       height: 24,
       useColorFilter: _useColorFilter,
-      shadow: const ui.Shadow(
-        color: Colors.black45,
-        offset: Offset(0.0, 2.0),
-        blurRadius: 4.0,
-      ),
+      shadow: const ui.Shadow(color: Colors.black45, offset: Offset(0.0, 2.0), blurRadius: 4.0),
     );
 
     final Widget row = Row(
@@ -45,17 +42,18 @@ class _ColorFilterAndFadePageState extends State<ColorFilterAndFadePage> with Ti
       ],
     );
 
-    final Widget column = Column(mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          row,
-          const SizedBox(height: 12),
-          row,
-          const SizedBox(height: 12),
-          row,
-          const SizedBox(height: 12),
-          row,
-          const SizedBox(height: 12),
-        ],
+    final Widget column = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        row,
+        const SizedBox(height: 12),
+        row,
+        const SizedBox(height: 12),
+        row,
+        const SizedBox(height: 12),
+        row,
+        const SizedBox(height: 12),
+      ],
     );
 
     final Widget fadeTransition = FadeTransition(
@@ -63,31 +61,29 @@ class _ColorFilterAndFadePageState extends State<ColorFilterAndFadePage> with Ti
       // This RepaintBoundary is necessary to not let the opacity change
       // invalidate the layer raster cache below. This is necessary with
       // or without the color filter.
-      child: RepaintBoundary(
-        child: column,
-      ),
+      child: RepaintBoundary(child: column),
     );
 
     return Scaffold(
-        backgroundColor: Colors.lightBlue,
-        body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                fadeTransition,
-                Container(height: 20),
-                const Text('Use Color Filter:'),
-                Checkbox(
-                  value: _useColorFilter,
-                  onChanged: (bool? value) {
-                    setState(() {
-                      _useColorFilter = value ?? false;
-                    });
-                  },
-                ),
-              ],
+      backgroundColor: Colors.lightBlue,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            fadeTransition,
+            Container(height: 20),
+            const Text('Use Color Filter:'),
+            Checkbox(
+              value: _useColorFilter,
+              onChanged: (bool? value) {
+                setState(() {
+                  _useColorFilter = value ?? false;
+                });
+              },
             ),
+          ],
         ),
+      ),
     );
   }
 
@@ -141,13 +137,9 @@ class _ShadowWidget extends StatelessWidget {
       width: width,
       height: height,
       child: CustomPaint(
-        painter: _ShadowPainter(
-          useColorFilter: useColorFilter,
-          shadow: shadow,
-        ),
+        painter: _ShadowPainter(useColorFilter: useColorFilter, shadow: shadow),
         size: Size(width, height),
         isComplex: true,
-        willChange: false,
       ),
     );
   }
@@ -163,7 +155,7 @@ class _ShadowPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final Rect rect = Offset.zero & size;
 
-    final Paint paint = Paint();
+    final paint = Paint();
     if (useColorFilter) {
       paint.colorFilter = ColorFilter.mode(shadow.color, BlendMode.srcIn);
     }
@@ -171,7 +163,10 @@ class _ShadowPainter extends CustomPainter {
     canvas.saveLayer(null, paint);
     canvas.translate(shadow.offset.dx, shadow.offset.dy);
     canvas.drawRect(rect, Paint());
-    canvas.drawRect(rect, Paint()..maskFilter = MaskFilter.blur(BlurStyle.normal, shadow.blurSigma));
+    canvas.drawRect(
+      rect,
+      Paint()..maskFilter = MaskFilter.blur(BlurStyle.normal, shadow.blurSigma),
+    );
     canvas.restore();
 
     canvas.drawRect(rect, Paint()..color = useColorFilter ? Colors.white : Colors.black);

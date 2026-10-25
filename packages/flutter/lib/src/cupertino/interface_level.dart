@@ -21,7 +21,8 @@ enum CupertinoUserInterfaceLevelData {
 }
 
 /// Establishes a subtree in which [CupertinoUserInterfaceLevel.of] resolves to
-/// the given data.
+/// the given visual elevation from the [CupertinoUserInterfaceLevelData]. This
+/// can be used to apply style differences based on a widget's elevation.
 ///
 /// Querying the current elevation status using [CupertinoUserInterfaceLevel.of]
 /// will cause your widget to rebuild automatically whenever the
@@ -40,13 +41,7 @@ enum CupertinoUserInterfaceLevelData {
 class CupertinoUserInterfaceLevel extends InheritedWidget {
   /// Creates a [CupertinoUserInterfaceLevel] to change descendant Cupertino widget's
   /// visual level.
-  const CupertinoUserInterfaceLevel({
-    Key? key,
-    required CupertinoUserInterfaceLevelData data,
-    required Widget child,
-  }) : assert(data != null),
-      _data = data,
-      super(key: key, child: child);
+  const CupertinoUserInterfaceLevel({super.key, required this._data, required super.child});
 
   final CupertinoUserInterfaceLevelData _data;
 
@@ -65,10 +60,11 @@ class CupertinoUserInterfaceLevel extends InheritedWidget {
   ///  * [maybeOf], which is similar, but will return null if no
   ///    [CupertinoUserInterfaceLevel] encloses the given context.
   static CupertinoUserInterfaceLevelData of(BuildContext context) {
-    assert(context != null);
-    final CupertinoUserInterfaceLevel? query = context.dependOnInheritedWidgetOfExactType<CupertinoUserInterfaceLevel>();
-    if (query != null)
+    final CupertinoUserInterfaceLevel? query = context
+        .dependOnInheritedWidgetOfExactType<CupertinoUserInterfaceLevel>();
+    if (query != null) {
       return query._data;
+    }
     throw FlutterError(
       'CupertinoUserInterfaceLevel.of() called with a context that does not contain a CupertinoUserInterfaceLevel.\n'
       'No CupertinoUserInterfaceLevel ancestor could be found starting from the context that was passed '
@@ -94,11 +90,9 @@ class CupertinoUserInterfaceLevel extends InheritedWidget {
   ///  * [of], which is similar, but will throw an exception if no
   ///    [CupertinoUserInterfaceLevel] encloses the given context.
   static CupertinoUserInterfaceLevelData? maybeOf(BuildContext context) {
-    assert(context != null);
-    final CupertinoUserInterfaceLevel? query = context.dependOnInheritedWidgetOfExactType<CupertinoUserInterfaceLevel>();
-    if (query != null)
-      return query._data;
-    return null;
+    final CupertinoUserInterfaceLevel? query = context
+        .dependOnInheritedWidgetOfExactType<CupertinoUserInterfaceLevel>();
+    return query?._data;
   }
 
   @override

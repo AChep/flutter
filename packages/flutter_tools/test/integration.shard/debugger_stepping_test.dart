@@ -2,9 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
-import 'dart:io';
+@Tags(<String>['flutter-test-driver'])
+library;
 
 import 'package:file/file.dart';
 
@@ -14,7 +13,7 @@ import 'test_driver.dart';
 import 'test_utils.dart';
 
 void main() {
-  Directory tempDir;
+  late Directory tempDir;
 
   setUp(() async {
     tempDir = createResolvedTempDirectorySync('debugger_stepping_test.');
@@ -25,33 +24,34 @@ void main() {
   });
 
   testWithoutContext('can step over statements', () async {
-    final SteppingProject _project = SteppingProject();
-    await _project.setUpIn(tempDir);
+    final project = SteppingProject();
+    await project.setUpIn(tempDir);
 
-    final FlutterRunTestDriver _flutter = FlutterRunTestDriver(tempDir);
+    final flutter = FlutterRunTestDriver(tempDir);
 
-    await _flutter.run(withDebugger: true, startPaused: true);
-    await _flutter.addBreakpoint(_project.breakpointUri, _project.breakpointLine);
-    await _flutter.resume();
-    await _flutter.waitForPause(); // Now we should be on the breakpoint.
+    await flutter.run(withDebugger: true, startPaused: true);
+    await flutter.addBreakpoint(project.breakpointUri, project.breakpointLine);
+    await flutter.resume(waitForNextPause: true); // Now we should be on the breakpoint.
 
-    expect((await _flutter.getSourceLocation()).line, equals(_project.breakpointLine));
+    expect((await flutter.getSourceLocation())?.line, equals(project.breakpointLine));
 
     // Issue 5 steps, ensuring that we end up on the annotated lines each time.
-    for (int i = 1; i <= _project.numberOfSteps; i += 1) {
-      await _flutter.stepOverOrOverAsyncSuspension();
-      final SourcePosition location = await _flutter.getSourceLocation();
-      final int actualLine = location.line;
+    for (var i = 1; i <= project.numberOfSteps; i += 1) {
+      await flutter.stepOverOrOverAsyncSuspension();
+      final SourcePosition? location = await flutter.getSourceLocation();
+      final int? actualLine = location?.line;
 
       // Get the line we're expected to stop at by searching for the comment
       // within the source code.
-      final int expectedLine = _project.lineForStep(i);
+      final int expectedLine = project.lineForStep(i);
 
-      expect(actualLine, equals(expectedLine),
-        reason: 'After $i steps, debugger should stop at $expectedLine but stopped at $actualLine'
+      expect(
+        actualLine,
+        equals(expectedLine),
+        reason: 'After $i steps, debugger should stop at $expectedLine but stopped at $actualLine',
       );
     }
 
-    await _flutter.stop();
-  }, skip: Platform.isWindows); // Skipping for https://github.com/flutter/flutter/issues/87481
+    await flutter.stop();
+  });
 }

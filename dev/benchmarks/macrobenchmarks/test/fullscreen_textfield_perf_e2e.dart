@@ -12,15 +12,11 @@ void main() {
   macroPerfTestE2E(
     'fullscreen_textfield_perf',
     kFullscreenTextRouteName,
-    // The driver version doesn't have this delay because the delay caused
-    // by the communication between the host and the test device is long enough
-    // for the driver test, but there isn't such delay in this host independent
-    // test.
-    pageDelay: const Duration(milliseconds: 50),
+    pageDelay: const Duration(seconds: 1),
     body: (WidgetController controller) async {
       final Finder textfield = find.byKey(const ValueKey<String>('fullscreen-textfield'));
-      controller.tap(textfield);
-      await Future<void>.delayed(const Duration(milliseconds: 5000));
+      await controller.tap(textfield);
+      await Future<void>.delayed(const Duration(seconds: 10));
     },
   );
 }

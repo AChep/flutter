@@ -14,12 +14,11 @@ void main() {
     });
 
     tearDownAll(() async {
-      driver.close();
+      await driver.close();
     });
 
     test('tap on the button, verify result', () async {
-      final SerializableFinder batteryLevelLabel =
-          find.byValueKey('Battery level label');
+      final SerializableFinder batteryLevelLabel = find.byValueKey('Battery level label');
       expect(batteryLevelLabel, isNotNull);
 
       final SerializableFinder button = find.text('Refresh');
@@ -31,7 +30,10 @@ void main() {
         batteryLevel = await driver.getText(batteryLevelLabel);
       }
 
-      expect(batteryLevel.contains('%'), isTrue);
+      // Allow either a battery percentage or "No battery" since it will vary
+      // by device; either indicates that a known response came from the host
+      // implementation.
+      expect(batteryLevel.contains('%') || batteryLevel.contains('No battery'), isTrue);
     });
   });
 }

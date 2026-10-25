@@ -5,20 +5,15 @@
 import 'package:flutter/material.dart';
 
 class TextPage extends StatelessWidget {
-  const TextPage({Key? key}) : super(key: key);
+  const TextPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    return const Material(
       child: Column(
-        children: const <Widget>[
-          SizedBox(
-            width: 200,
-            height: 100,
-            child: TextField(
-              key: Key('basic-textfield'),
-            ),
-          ),
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          SizedBox(width: 200, height: 100, child: TextField(key: Key('basic-textfield'))),
         ],
       ),
     );

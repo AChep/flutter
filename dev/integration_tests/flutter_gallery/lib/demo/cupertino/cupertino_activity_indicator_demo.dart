@@ -7,7 +7,7 @@ import 'package:flutter/cupertino.dart';
 import '../../gallery/demo.dart';
 
 class CupertinoProgressIndicatorDemo extends StatelessWidget {
-  const CupertinoProgressIndicatorDemo({Key? key}) : super(key: key);
+  const CupertinoProgressIndicatorDemo({super.key});
 
   static const String routeName = '/cupertino/progress_indicator';
 
@@ -22,9 +22,7 @@ class CupertinoProgressIndicatorDemo extends StatelessWidget {
         middle: const Text('Activity Indicator'),
         trailing: CupertinoDemoDocumentationButton(routeName),
       ),
-      child: const Center(
-        child: CupertinoActivityIndicator(),
-      ),
+      child: const Center(child: CupertinoActivityIndicator()),
     );
   }
 }

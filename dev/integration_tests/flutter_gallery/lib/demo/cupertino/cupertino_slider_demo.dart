@@ -7,7 +7,7 @@ import 'package:flutter/cupertino.dart';
 import '../../gallery/demo.dart';
 
 class CupertinoSliderDemo extends StatefulWidget {
-  const CupertinoSliderDemo({Key? key}) : super(key: key);
+  const CupertinoSliderDemo({super.key});
 
   static const String routeName = '/cupertino/slider';
 
@@ -39,10 +39,9 @@ class _CupertinoSliderDemoState extends State<CupertinoSliderDemo> {
               children: <Widget>[
                 Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: <Widget> [
+                  children: <Widget>[
                     CupertinoSlider(
                       value: _value,
-                      min: 0.0,
                       max: 100.0,
                       onChanged: (double value) {
                         setState(() {
@@ -55,10 +54,9 @@ class _CupertinoSliderDemoState extends State<CupertinoSliderDemo> {
                 ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: <Widget> [
+                  children: <Widget>[
                     CupertinoSlider(
                       value: _discreteValue,
-                      min: 0.0,
                       max: 100.0,
                       divisions: 5,
                       onChanged: (double value) {

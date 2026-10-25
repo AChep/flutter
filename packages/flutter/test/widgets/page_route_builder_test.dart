@@ -2,26 +2,30 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:flutter/material.dart';
+// This file is run as part of a reduced test set in CI on Mac and Windows
+// machines.
+@Tags(<String>['reduced-test-set'])
+library;
+
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'button_tester.dart';
+
+const Color _debugBlack54 = Color(0x8A000000);
+const Color _debugTeal = Color(0xFF009688);
+
 class TestPage extends StatelessWidget {
-  const TestPage({Key? key}) : super(key: key);
+  const TestPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Test',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const HomePage(),
-    );
+    return const TestWidgetsApp(home: HomePage());
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<StatefulWidget> createState() => _HomePageState();
@@ -29,57 +33,50 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   void _presentModalPage() {
-    Navigator.of(context).push(PageRouteBuilder<void>(
-      transitionDuration: const Duration(milliseconds: 300),
-      barrierColor: Colors.black54,
-      opaque: false,
-      pageBuilder: (BuildContext context, _, __) {
-        return const ModalPage();
-      },
-    ));
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        barrierColor: _debugBlack54,
+        opaque: false,
+        pageBuilder: (BuildContext context, _, _) {
+          return const ModalPage();
+        },
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: const Center(
-        child: Text('Test Home'),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _presentModalPage,
-        child: const Icon(Icons.add),
-      ),
+    return Column(
+      children: <Widget>[
+        const Expanded(child: Center(child: Text('Test Home'))),
+        Align(
+          alignment: Alignment.bottomRight,
+          child: TestButton(onPressed: _presentModalPage, child: const Text('+')),
+        ),
+      ],
     );
   }
 }
 
 class ModalPage extends StatelessWidget {
-  const ModalPage({Key? key}) : super(key: key);
+  const ModalPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      type: MaterialType.transparency,
-      child: SafeArea(
-        child: Stack(
-          children: <Widget>[
-            InkWell(
-              highlightColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              onTap: () {
-                Navigator.of(context).pop();
-              },
-              child: const SizedBox.expand(),
-            ),
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                height: 150,
-                color: Colors.teal,
-              ),
-            ),
-          ],
-        ),
+    return SafeArea(
+      child: Stack(
+        children: <Widget>[
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).pop();
+            },
+            child: const SizedBox.expand(),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(height: 150, color: _debugTeal),
+          ),
+        ],
       ),
     );
   }
@@ -88,11 +85,8 @@ class ModalPage extends StatelessWidget {
 void main() {
   testWidgets('Barriers show when using PageRouteBuilder', (WidgetTester tester) async {
     await tester.pumpWidget(const TestPage());
-    await tester.tap(find.byType(FloatingActionButton));
+    await tester.tap(find.byType(TestButton));
     await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(TestPage),
-      matchesGoldenFile('page_route_builder.barrier.png'),
-    );
+    await expectLater(find.byType(TestPage), matchesGoldenFile('page_route_builder.barrier.png'));
   });
 }

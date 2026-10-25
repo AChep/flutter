@@ -3,10 +3,10 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_driver/driver_extension.dart';
 
 import 'src/basic_messaging.dart';
 import 'src/method_calls.dart';
@@ -14,12 +14,11 @@ import 'src/pair.dart';
 import 'src/test_step.dart';
 
 void main() {
-  enableFlutterDriverExtension();
   runApp(const TestApp());
 }
 
 class TestApp extends StatefulWidget {
-  const TestApp({Key? key}) : super(key: key);
+  const TestApp({super.key});
 
   @override
   State<TestApp> createState() => _TestAppState();
@@ -45,17 +44,8 @@ class _TestAppState extends State<TestApp> {
       <String, dynamic>{'key': 42},
     ],
   };
-  static final Uint8List someUint8s = Uint8List.fromList(<int>[
-    0xBA,
-    0x5E,
-    0xBA,
-    0x11,
-  ]);
-  static final Int32List someInt32s = Int32List.fromList(<int>[
-    -0x7fffffff - 1,
-    0,
-    0x7fffffff,
-  ]);
+  static final Uint8List someUint8s = Uint8List.fromList(<int>[0xBA, 0x5E, 0xBA, 0x11]);
+  static final Int32List someInt32s = Int32List.fromList(<int>[-0x7fffffff - 1, 0, 0x7fffffff]);
   static final Int64List someInt64s = Int64List.fromList(<int>[
     -0x7fffffffffffffff - 1,
     0,
@@ -72,8 +62,7 @@ class _TestAppState extends State<TestApp> {
     double.maxFinite,
     double.infinity,
   ]);
-  static final Float64List someFloat64s =
-      Float64List.fromList(<double>[
+  static final Float64List someFloat64s = Float64List.fromList(<double>[
     double.nan,
     double.negativeInfinity,
     -double.maxFinite,
@@ -110,11 +99,17 @@ class _TestAppState extends State<TestApp> {
     () => methodCallStandardErrorHandshake('world'),
     () => methodCallStandardNotImplementedHandshake(),
     () => basicBinaryHandshake(null),
-    () => basicBinaryHandshake(ByteData(0)),
+    if (!Platform.isMacOS)
+      // Note, it was decided that this will function differently on macOS. See
+      // also: https://github.com/flutter/flutter/issues/110865.
+      () => basicBinaryHandshake(ByteData(0)),
     () => basicBinaryHandshake(ByteData(4)..setUint32(0, 0x12345678)),
     () => basicStringHandshake('hello, world'),
     () => basicStringHandshake('hello \u263A \u{1f602} unicode'),
-    () => basicStringHandshake(''),
+    if (!Platform.isMacOS)
+      // Note, it was decided that this will function differently on macOS. See
+      // also: https://github.com/flutter/flutter/issues/110865.
+      () => basicStringHandshake(''),
     () => basicStringHandshake(null),
     () => basicJsonHandshake(null),
     () => basicJsonHandshake(true),
@@ -166,23 +161,23 @@ class _TestAppState extends State<TestApp> {
     () => basicStringMessageToUnknownChannel(),
     () => basicJsonMessageToUnknownChannel(),
     () => basicStandardMessageToUnknownChannel(),
+    if (Platform.isIOS || Platform.isAndroid || Platform.isMacOS)
+      () => basicBackgroundStandardEcho(123),
   ];
   Future<TestStepResult>? _result;
   int _step = 0;
 
   void _executeNextStep() {
     setState(() {
-      if (_step < steps.length)
+      if (_step < steps.length) {
         _result = steps[_step++]();
-      else
+      } else {
         _result = Future<TestStepResult>.value(TestStepResult.complete);
+      }
     });
   }
 
-  Widget _buildTestResultWidget(
-    BuildContext context,
-    AsyncSnapshot<TestStepResult> snapshot,
-  ) {
+  Widget _buildTestResultWidget(BuildContext context, AsyncSnapshot<TestStepResult> snapshot) {
     return TestStepResult.fromSnapshot(snapshot).asWidget(context);
   }
 
@@ -191,15 +186,10 @@ class _TestAppState extends State<TestApp> {
     return MaterialApp(
       title: 'Channels Test',
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Channels Test'),
-        ),
+        appBar: AppBar(title: const Text('Channels Test')),
         body: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: FutureBuilder<TestStepResult>(
-            future: _result,
-            builder: _buildTestResultWidget,
-          ),
+          child: FutureBuilder<TestStepResult>(future: _result, builder: _buildTestResultWidget),
         ),
         floatingActionButton: FloatingActionButton(
           key: const ValueKey<String>('step'),

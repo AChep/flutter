@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:async';
+import 'dart:core' hide print;
 import 'dart:io';
 
 import 'package:path/path.dart' as path;
@@ -19,265 +19,181 @@ final String _flutter = path.join(_flutterRoot, 'bin', 'flutter$_bat');
 final String _testAppDirectory = path.join(_flutterRoot, 'dev', 'integration_tests', 'web');
 final String _appBuildDirectory = path.join(_testAppDirectory, 'build', 'web');
 final String _target = path.join('lib', 'service_worker_test.dart');
-final String _targetPath = path.join(_testAppDirectory, _target);
+final Set<String> _requestedPaths = <String>{};
 
-// Run a web service worker test as a standalone Dart program.
 Future<void> main() async {
-  await runWebServiceWorkerTest(headless: false);
+  await runServiceWorkerCleanupTest(headless: false);
+
+  if (hasError) {
+    reportErrorsAndExit('${bold}Cleanup test FAILED.$reset');
+  }
+  reportSuccessAndExit('${bold}Cleanup test PASSED successfully.$reset');
 }
 
-Future<void> _setAppVersion(int version) async {
-  final File targetFile = File(_targetPath);
-  await targetFile.writeAsString(
-    (await targetFile.readAsString()).replaceFirst(
-      RegExp(r'CLOSE\?version=\d+'),
-      'CLOSE?version=$version',
-    )
+Future<void> runServiceWorkerCleanupTest({required bool headless}) async {
+  print('${bold}BEGIN: Service Worker Cleanup Verification Test$reset');
+
+  AppServer? server;
+
+  const oldCachingWorkerContent = '''
+'use strict';
+const CACHE_NAME = 'flutter-app-cache';
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(['/', 'index.html', 'main.dart.js']);
+    }).then(() => self.skipWaiting())
+  );
+});
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.match(event.request).then((response) => {
+        return response || fetch(event.request).then((response) => {
+          if (response && Boolean(response.ok)) {
+            cache.put(event.request, response.clone());
+          }
+          return response;
+        });
+      })
+    })
+  );
+});
+  ''';
+
+  final serviceWorkerBuildFile = File(path.join(_appBuildDirectory, 'flutter_service_worker.js'));
+
+  try {
+    await runCommand(_flutter, <String>['clean'], workingDirectory: _testAppDirectory);
+    await runCommand(
+      _flutter,
+      <String>['build', 'web', '--no-web-resources-cdn', '--profile', '-t', _target],
+      workingDirectory: _testAppDirectory,
+      environment: <String, String>{'FLUTTER_WEB': 'true'},
+    );
+    print('\n${yellow}Phase 1: Installing dummy caching worker and verifying it caches...$reset');
+    final String cleanupWorkerContent = serviceWorkerBuildFile.readAsStringSync();
+    serviceWorkerBuildFile.writeAsStringSync(oldCachingWorkerContent);
+
+    server = await _startServer(headless: headless);
+    await _waitForAppToRequest(server, 'flutter_service_worker.js');
+    await _waitForAppToRequest(server, 'main.dart.js');
+    _requestedPaths.clear();
+    print('== RELOADING PAGE ==');
+    await server.chrome.reloadPage();
+    await _waitForAppToRequest(server, 'CLOSE');
+
+    expect(
+      _requestedPaths,
+      isNot(contains('main.dart.js')),
+      reason: 'On a simple reload, main.dart.js should have been served from the cache, so no network request was expected.',
+    );
+    print('${green}Verification successful: Old caching worker is active.$reset');
+    await server.stop();
+
+    print('\n${yellow}Phase 2: Deploying cleanup worker and verifying cache is removed...$reset');
+    serviceWorkerBuildFile.writeAsStringSync(cleanupWorkerContent);
+
+    _requestedPaths.clear();
+    server = await _startServer(headless: headless);
+    await _waitForAppToRequest(server, 'flutter_service_worker.js');
+    await _waitForAppToRequest(server, 'main.dart.js');
+    _requestedPaths.clear();
+    print('== RELOADING PAGE ==');
+    await server.chrome.reloadPage();
+    await _waitForAppToRequest(server, 'main.dart.js');
+
+    expect(
+      _requestedPaths,
+      contains('main.dart.js'),
+      reason: 'After cleanup, main.dart.js should be requested from the network because the caching worker is gone.',
+    );
+    print(
+      '${green}Verification successful: Cleanup worker has removed the old caching behavior.$reset',
+    );
+  } finally {
+    await server?.stop();
+    print('\n${bold}END: Service Worker Cleanup Verification Test$reset');
+  }
+}
+
+Future<AppServer> _startServer({required bool headless}) async {
+  return AppServer.start(
+    headless: headless,
+    appDirectory: _appBuildDirectory,
+    cacheControl: 'max-age=0',
+    additionalRequestHandlers: <Handler>[
+      (Request request) {
+        final String path = request.url.path.split('/').last;
+        print('(requested path: $path)');
+        _requestedPaths.add(path);
+        return Response.notFound('');
+      },
+    ],
   );
 }
 
-Future<void> _rebuildApp({ required int version }) async {
-  await _setAppVersion(version);
-  await runCommand(
-    _flutter,
-    <String>[ 'clean' ],
-    workingDirectory: _testAppDirectory,
-  );
-  await runCommand(
-    _flutter,
-    <String>['build', 'web', '--profile', '-t', _target],
-    workingDirectory: _testAppDirectory,
-    environment: <String, String>{
-      'FLUTTER_WEB': 'true',
-    },
-  );
+Future<void> _waitForAppToRequest(AppServer server, String file) async {
+  print('Waiting for app to request "$file"');
+  await Future.any(<Future<Object?>>[
+    () async {
+      var tries = 1;
+      while (!_requestedPaths.contains(file)) {
+        if (tries++ % 40 == 0) {
+          print('-- Still waiting for app to request "$file". Requested so far: $_requestedPaths');
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      print('++ App has requested "$file"');
+    }(),
+    server.onChromeError.then((String error) {
+      throw Exception('Chrome error: $error');
+    }),
+  ]);
 }
 
-/// A drop-in replacement for `package:test` expect that can run outside the
-/// test zone.
-void expect(Object? actual, Object? expected) {
+/// A drop-in replacement for `package:test`'s `expect` that can run
+/// outside the standard test runner environment.
+void expect(Object? actual, Object? expected, {String? reason}) {
   final Matcher matcher = wrapMatcher(expected);
-  final Map<Object, Object> matchState = <Object, Object>{};
+  final matchState = <Object?, Object?>{};
   if (matcher.matches(actual, matchState)) {
     return;
   }
-  final StringDescription mismatchDescription = StringDescription();
+  final mismatchDescription = StringDescription();
   matcher.describeMismatch(actual, mismatchDescription, matchState, true);
-  throw TestFailure(mismatchDescription.toString());
+
+  final which = mismatchDescription.toString();
+  final buffer = StringBuffer();
+  buffer.writeln(_indent(_prettyPrint(expected), first: 'Expected: '));
+  buffer.writeln(_indent(_prettyPrint(actual), first: '  Actual: '));
+  if (which.isNotEmpty) {
+    buffer.writeln(_indent(which, first: '   Which: '));
+  }
+  if (reason != null) {
+    buffer.writeln(_indent(reason, first: '  Reason: '));
+  }
+  foundError(<String>[buffer.toString(), StackTrace.current.toString()]);
 }
 
-Future<void> runWebServiceWorkerTest({
-  required bool headless,
-}) async {
-  await _rebuildApp(version: 1);
+/// Returns a pretty-printed representation of [value].
+String _prettyPrint(Object? value) => StringDescription().addDescriptionOf(value).toString();
 
-  final Map<String, int> requestedPathCounts = <String, int>{};
-  void expectRequestCounts(Map<String, int> expectedCounts) {
-    expect(requestedPathCounts, expectedCounts);
-    requestedPathCounts.clear();
+/// Indents each line of a [text] string.
+String _indent(String text, {required String first}) {
+  final String prefix = ' ' * first.length;
+  final List<String> lines = text.split('\n');
+  if (lines.length == 1) {
+    return '$first$text';
   }
-
-  AppServer? server;
-  Future<void> waitForAppToLoad(Map<String, int> waitForCounts) async {
-    print('Waiting for app to load $waitForCounts');
-    await Future.any(<Future<Object?>>[
-      () async {
-        while (!waitForCounts.entries.every((MapEntry<String, int> entry) => (requestedPathCounts[entry.key] ?? 0) >= entry.value)) {
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-        }
-      }(),
-      server!.onChromeError.then((String error) {
-        throw Exception('Chrome error: $error');
-      }),
-    ]);
+  final buffer = StringBuffer('$first${lines.first}\n');
+  for (final String line in lines.skip(1).take(lines.length - 2)) {
+    buffer.writeln('$prefix$line');
   }
-
-  String? reportedVersion;
-
-  Future<void> startAppServer({
-    required String cacheControl,
-  }) async {
-    final int serverPort = await findAvailablePort();
-    final int browserDebugPort = await findAvailablePort();
-    server = await AppServer.start(
-      headless: headless,
-      cacheControl: cacheControl,
-      // TODO(yjbanov): use a better port disambiguation strategy than trying
-      //                to guess what ports other tests use.
-      appUrl: 'http://localhost:$serverPort/index.html',
-      serverPort: serverPort,
-      browserDebugPort: browserDebugPort,
-      appDirectory: _appBuildDirectory,
-      additionalRequestHandlers: <Handler>[
-        (Request request) {
-          final String requestedPath = request.url.path;
-          requestedPathCounts.putIfAbsent(requestedPath, () => 0);
-          requestedPathCounts[requestedPath] = requestedPathCounts[requestedPath]! + 1;
-          if (requestedPath == 'CLOSE') {
-            reportedVersion = request.url.queryParameters['version'];
-            return Response.ok('OK');
-          }
-          return Response.notFound('');
-        },
-      ],
-    );
-  }
-
-  try {
-    //////////////////////////////////////////////////////
-    // Caching server
-    //////////////////////////////////////////////////////
-    print('With cache: test first page load');
-    await startAppServer(cacheControl: 'max-age=3600');
-    await waitForAppToLoad(<String, int>{
-      'CLOSE': 1,
-      'flutter_service_worker.js': 1,
-    });
-
-    expectRequestCounts(<String, int>{
-      '': 1,
-      // Even though the server is caching index.html is downloaded twice,
-      // once by the initial page load, and once by the service worker.
-      // Other resources are loaded once only by the service worker.
-      'index.html': 2,
-      'main.dart.js': 1,
-      'flutter_service_worker.js': 1,
-      'assets/FontManifest.json': 1,
-      'assets/NOTICES': 1,
-      'assets/AssetManifest.json': 1,
-      'CLOSE': 1,
-      // In headless mode Chrome does not load 'manifest.json' and 'favicon.ico'.
-      if (!headless)
-        ...<String, int>{
-          'manifest.json': 1,
-          'favicon.ico': 1,
-        }
-    });
-    expect(reportedVersion, '1');
-    reportedVersion = null;
-
-    print('With cache: test page reload');
-    await server!.chrome.reloadPage();
-    await waitForAppToLoad(<String, int>{
-      'CLOSE': 1,
-      'flutter_service_worker.js': 1,
-    });
-
-    expectRequestCounts(<String, int>{
-      'flutter_service_worker.js': 1,
-      'CLOSE': 1,
-    });
-    expect(reportedVersion, '1');
-    reportedVersion = null;
-
-    print('With cache: test page reload after rebuild');
-    await _rebuildApp(version: 2);
-
-    // Since we're caching, we need to ignore cache when reloading the page.
-    await server!.chrome.reloadPage(ignoreCache: true);
-    await waitForAppToLoad(<String, int>{
-      'CLOSE': 1,
-      'flutter_service_worker.js': 2,
-    });
-    expectRequestCounts(<String, int>{
-      'index.html': 2,
-      'flutter_service_worker.js': 2,
-      '': 1,
-      'main.dart.js': 1,
-      'assets/NOTICES': 1,
-      'assets/AssetManifest.json': 1,
-      'assets/FontManifest.json': 1,
-      'CLOSE': 1,
-      if (!headless)
-        'favicon.ico': 1,
-    });
-
-    expect(reportedVersion, '2');
-    reportedVersion = null;
-    await server!.stop();
-
-
-    //////////////////////////////////////////////////////
-    // Non-caching server
-    //////////////////////////////////////////////////////
-    print('No cache: test first page load');
-    await _rebuildApp(version: 3);
-    await startAppServer(cacheControl: 'max-age=0');
-    await waitForAppToLoad(<String, int>{
-      'CLOSE': 1,
-      'flutter_service_worker.js': 1,
-    });
-
-    expectRequestCounts(<String, int>{
-      '': 1,
-      'index.html': 2,
-      // We still download some resources multiple times if the server is non-caching.
-      'main.dart.js': 2,
-      'assets/FontManifest.json': 2,
-      'flutter_service_worker.js': 1,
-      'assets/NOTICES': 1,
-      'assets/AssetManifest.json': 1,
-      'CLOSE': 1,
-      // In headless mode Chrome does not load 'manifest.json' and 'favicon.ico'.
-      if (!headless)
-        ...<String, int>{
-          'manifest.json': 1,
-          'favicon.ico': 1,
-        }
-    });
-
-    expect(reportedVersion, '3');
-    reportedVersion = null;
-
-    print('No cache: test page reload');
-    await server!.chrome.reloadPage();
-    await waitForAppToLoad(<String, int>{
-      'CLOSE': 1,
-      'flutter_service_worker.js': 1,
-    });
-
-    expectRequestCounts(<String, int>{
-      'flutter_service_worker.js': 1,
-      'CLOSE': 1,
-      if (!headless)
-        'manifest.json': 1,
-    });
-    expect(reportedVersion, '3');
-    reportedVersion = null;
-
-    print('No cache: test page reload after rebuild');
-    await _rebuildApp(version: 4);
-
-    // TODO(yjbanov): when running Chrome with DevTools protocol, for some
-    // reason a hard refresh is still required. This works without a hard
-    // refresh when running Chrome manually as normal. At the time of writing
-    // this test I wasn't able to figure out what's wrong with the way we run
-    // Chrome from tests.
-    await server!.chrome.reloadPage(ignoreCache: true);
-    await waitForAppToLoad(<String, int>{
-      'CLOSE': 1,
-      'flutter_service_worker.js': 1,
-    });
-    expectRequestCounts(<String, int>{
-      '': 1,
-      'index.html': 2,
-      'flutter_service_worker.js': 2,
-      'main.dart.js': 2,
-      'assets/NOTICES': 1,
-      'assets/AssetManifest.json': 1,
-      'assets/FontManifest.json': 2,
-      'CLOSE': 1,
-      if (!headless)
-        ...<String, int>{
-          'manifest.json': 1,
-          'favicon.ico': 1,
-        }
-    });
-
-    expect(reportedVersion, '4');
-    reportedVersion = null;
-  } finally {
-    await _setAppVersion(1);
-    await server?.stop();
-  }
+  buffer.write('$prefix${lines.last}');
+  return buffer.toString();
 }

@@ -2,20 +2,24 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'switch.dart';
+library;
+
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
-import 'material_state.dart';
 import 'theme.dart';
-import 'theme_data.dart';
+
+// Examples can assume:
+// late BuildContext context;
 
 /// Defines default property values for descendant [Switch] widgets.
 ///
 /// Descendant widgets obtain the current [SwitchThemeData] object using
-/// `SwitchTheme.of(context)`. Instances of [SwitchThemeData] can be customized
+/// [SwitchTheme.of]. Instances of [SwitchThemeData] can be customized
 /// with [SwitchThemeData.copyWith].
 ///
 /// Typically a [SwitchThemeData] is specified as part of the overall [Theme]
@@ -36,21 +40,35 @@ class SwitchThemeData with Diagnosticable {
   const SwitchThemeData({
     this.thumbColor,
     this.trackColor,
+    this.trackOutlineColor,
+    this.trackOutlineWidth,
     this.materialTapTargetSize,
     this.mouseCursor,
     this.overlayColor,
     this.splashRadius,
+    this.thumbIcon,
+    this.padding,
   });
 
   /// {@macro flutter.material.switch.thumbColor}
   ///
   /// If specified, overrides the default value of [Switch.thumbColor].
-  final MaterialStateProperty<Color?>? thumbColor;
+  final WidgetStateProperty<Color?>? thumbColor;
 
   /// {@macro flutter.material.switch.trackColor}
   ///
   /// If specified, overrides the default value of [Switch.trackColor].
-  final MaterialStateProperty<Color?>? trackColor;
+  final WidgetStateProperty<Color?>? trackColor;
+
+  /// {@macro flutter.material.switch.trackOutlineColor}
+  ///
+  /// If specified, overrides the default value of [Switch.trackOutlineColor].
+  final WidgetStateProperty<Color?>? trackOutlineColor;
+
+  /// {@macro flutter.material.switch.trackOutlineWidth}
+  ///
+  /// If specified, overrides the default value of [Switch.trackOutlineWidth].
+  final WidgetStateProperty<double?>? trackOutlineWidth;
 
   /// {@macro flutter.material.switch.materialTapTargetSize}
   ///
@@ -61,35 +79,51 @@ class SwitchThemeData with Diagnosticable {
   /// {@macro flutter.material.switch.mouseCursor}
   ///
   /// If specified, overrides the default value of [Switch.mouseCursor].
-  final MaterialStateProperty<MouseCursor?>? mouseCursor;
+  final WidgetStateProperty<MouseCursor?>? mouseCursor;
 
   /// {@macro flutter.material.switch.overlayColor}
   ///
   /// If specified, overrides the default value of [Switch.overlayColor].
-  final MaterialStateProperty<Color?>? overlayColor;
+  final WidgetStateProperty<Color?>? overlayColor;
 
   /// {@macro flutter.material.switch.splashRadius}
   ///
   /// If specified, overrides the default value of [Switch.splashRadius].
   final double? splashRadius;
 
+  /// {@macro flutter.material.switch.thumbIcon}
+  ///
+  /// It is overridden by [Switch.thumbIcon].
+  final WidgetStateProperty<Icon?>? thumbIcon;
+
+  /// If specified, overrides the default value of [Switch.padding].
+  final EdgeInsetsGeometry? padding;
+
   /// Creates a copy of this object but with the given fields replaced with the
   /// new values.
   SwitchThemeData copyWith({
-    MaterialStateProperty<Color?>? thumbColor,
-    MaterialStateProperty<Color?>? trackColor,
+    WidgetStateProperty<Color?>? thumbColor,
+    WidgetStateProperty<Color?>? trackColor,
+    WidgetStateProperty<Color?>? trackOutlineColor,
+    WidgetStateProperty<double?>? trackOutlineWidth,
     MaterialTapTargetSize? materialTapTargetSize,
-    MaterialStateProperty<MouseCursor?>? mouseCursor,
-    MaterialStateProperty<Color?>? overlayColor,
+    WidgetStateProperty<MouseCursor?>? mouseCursor,
+    WidgetStateProperty<Color?>? overlayColor,
     double? splashRadius,
+    WidgetStateProperty<Icon?>? thumbIcon,
+    EdgeInsetsGeometry? padding,
   }) {
     return SwitchThemeData(
       thumbColor: thumbColor ?? this.thumbColor,
       trackColor: trackColor ?? this.trackColor,
+      trackOutlineColor: trackOutlineColor ?? this.trackOutlineColor,
+      trackOutlineWidth: trackOutlineWidth ?? this.trackOutlineWidth,
       materialTapTargetSize: materialTapTargetSize ?? this.materialTapTargetSize,
       mouseCursor: mouseCursor ?? this.mouseCursor,
       overlayColor: overlayColor ?? this.overlayColor,
       splashRadius: splashRadius ?? this.splashRadius,
+      thumbIcon: thumbIcon ?? this.thumbIcon,
+      padding: padding ?? this.padding,
     );
   }
 
@@ -97,80 +131,130 @@ class SwitchThemeData with Diagnosticable {
   ///
   /// {@macro dart.ui.shadow.lerp}
   static SwitchThemeData lerp(SwitchThemeData? a, SwitchThemeData? b, double t) {
+    if (identical(a, b) && a != null) {
+      return a;
+    }
     return SwitchThemeData(
-      thumbColor: _lerpProperties<Color?>(a?.thumbColor, b?.thumbColor, t, Color.lerp),
-      trackColor: _lerpProperties<Color?>(a?.trackColor, b?.trackColor, t, Color.lerp),
+      thumbColor: WidgetStateProperty.lerp<Color?>(a?.thumbColor, b?.thumbColor, t, Color.lerp),
+      trackColor: WidgetStateProperty.lerp<Color?>(a?.trackColor, b?.trackColor, t, Color.lerp),
+      trackOutlineColor: WidgetStateProperty.lerp<Color?>(
+        a?.trackOutlineColor,
+        b?.trackOutlineColor,
+        t,
+        Color.lerp,
+      ),
+      trackOutlineWidth: WidgetStateProperty.lerp<double?>(
+        a?.trackOutlineWidth,
+        b?.trackOutlineWidth,
+        t,
+        lerpDouble,
+      ),
       materialTapTargetSize: t < 0.5 ? a?.materialTapTargetSize : b?.materialTapTargetSize,
       mouseCursor: t < 0.5 ? a?.mouseCursor : b?.mouseCursor,
-      overlayColor: _lerpProperties<Color?>(a?.overlayColor, b?.overlayColor, t, Color.lerp),
+      overlayColor: WidgetStateProperty.lerp<Color?>(
+        a?.overlayColor,
+        b?.overlayColor,
+        t,
+        Color.lerp,
+      ),
       splashRadius: lerpDouble(a?.splashRadius, b?.splashRadius, t),
+      thumbIcon: t < 0.5 ? a?.thumbIcon : b?.thumbIcon,
+      padding: EdgeInsetsGeometry.lerp(a?.padding, b?.padding, t),
     );
   }
 
   @override
-  int get hashCode {
-    return hashValues(
-      thumbColor,
-      trackColor,
-      materialTapTargetSize,
-      mouseCursor,
-      overlayColor,
-      splashRadius,
-    );
-  }
+  int get hashCode => Object.hash(
+    thumbColor,
+    trackColor,
+    trackOutlineColor,
+    trackOutlineWidth,
+    materialTapTargetSize,
+    mouseCursor,
+    overlayColor,
+    splashRadius,
+    thumbIcon,
+    padding,
+  );
 
   @override
   bool operator ==(Object other) {
-    if (identical(this, other))
+    if (identical(this, other)) {
       return true;
-    if (other.runtimeType != runtimeType)
+    }
+    if (other.runtimeType != runtimeType) {
       return false;
-    return other is SwitchThemeData
-      && other.thumbColor == thumbColor
-      && other.trackColor == trackColor
-      && other.materialTapTargetSize == materialTapTargetSize
-      && other.mouseCursor == mouseCursor
-      && other.overlayColor == overlayColor
-      && other.splashRadius == splashRadius;
+    }
+    return other is SwitchThemeData &&
+        other.thumbColor == thumbColor &&
+        other.trackColor == trackColor &&
+        other.trackOutlineColor == trackOutlineColor &&
+        other.trackOutlineWidth == trackOutlineWidth &&
+        other.materialTapTargetSize == materialTapTargetSize &&
+        other.mouseCursor == mouseCursor &&
+        other.overlayColor == overlayColor &&
+        other.splashRadius == splashRadius &&
+        other.thumbIcon == thumbIcon &&
+        other.padding == padding;
   }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
-    properties.add(DiagnosticsProperty<MaterialStateProperty<Color?>>('thumbColor', thumbColor, defaultValue: null));
-    properties.add(DiagnosticsProperty<MaterialStateProperty<Color?>>('trackColor', trackColor, defaultValue: null));
-    properties.add(DiagnosticsProperty<MaterialTapTargetSize>('materialTapTargetSize', materialTapTargetSize, defaultValue: null));
-    properties.add(DiagnosticsProperty<MaterialStateProperty<MouseCursor?>>('mouseCursor', mouseCursor, defaultValue: null));
-    properties.add(DiagnosticsProperty<MaterialStateProperty<Color?>>('overlayColor', overlayColor, defaultValue: null));
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<Color?>>(
+        'thumbColor',
+        thumbColor,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<Color?>>(
+        'trackColor',
+        trackColor,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<Color?>>(
+        'trackOutlineColor',
+        trackOutlineColor,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<double?>>(
+        'trackOutlineWidth',
+        trackOutlineWidth,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<MaterialTapTargetSize>(
+        'materialTapTargetSize',
+        materialTapTargetSize,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<MouseCursor?>>(
+        'mouseCursor',
+        mouseCursor,
+        defaultValue: null,
+      ),
+    );
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<Color?>>(
+        'overlayColor',
+        overlayColor,
+        defaultValue: null,
+      ),
+    );
     properties.add(DoubleProperty('splashRadius', splashRadius, defaultValue: null));
-  }
-
-  static MaterialStateProperty<T>? _lerpProperties<T>(
-    MaterialStateProperty<T>? a,
-    MaterialStateProperty<T>? b,
-    double t,
-    T Function(T?, T?, double) lerpFunction,
-  ) {
-    // Avoid creating a _LerpProperties object for a common case.
-    if (a == null && b == null)
-      return null;
-    return _LerpProperties<T>(a, b, t, lerpFunction);
-  }
-}
-
-class _LerpProperties<T> implements MaterialStateProperty<T> {
-  const _LerpProperties(this.a, this.b, this.t, this.lerpFunction);
-
-  final MaterialStateProperty<T>? a;
-  final MaterialStateProperty<T>? b;
-  final double t;
-  final T Function(T?, T?, double) lerpFunction;
-
-  @override
-  T resolve(Set<MaterialState> states) {
-    final T? resolvedA = a?.resolve(states);
-    final T? resolvedB = b?.resolve(states);
-    return lerpFunction(resolvedA, resolvedB, t);
+    properties.add(
+      DiagnosticsProperty<WidgetStateProperty<Icon?>>('thumbIcon', thumbIcon, defaultValue: null),
+    );
+    properties.add(DiagnosticsProperty<EdgeInsetsGeometry>('padding', padding, defaultValue: null));
   }
 }
 
@@ -189,11 +273,7 @@ class _LerpProperties<T> implements MaterialStateProperty<T> {
 ///    theme.
 class SwitchTheme extends InheritedWidget {
   /// Constructs a switch theme that configures all descendant [Switch] widgets.
-  const SwitchTheme({
-    Key? key,
-    required this.data,
-    required Widget child,
-  }) : super(key: key, child: child);
+  const SwitchTheme({super.key, required this.data, required super.child});
 
   /// The properties used for all descendant [Switch] widgets.
   final SwitchThemeData data;

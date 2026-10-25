@@ -4,17 +4,8 @@
 
 import 'package:flutter/material.dart';
 
-class ColorTestingDemo extends StatelessWidget {
-  const ColorTestingDemo({ Key? key }) : super(key: key);
-
-  static const String routeName = '/color_demo';
-
-  @override
-  Widget build(BuildContext context) => const ColorDemoHome();
-}
-
 class ColorDemoHome extends StatelessWidget {
-  const ColorDemoHome({Key? key}) : super(key: key);
+  const ColorDemoHome({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +14,13 @@ class ColorDemoHome extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(5.0),
         children: <Widget>[
-          Image.network('https://flutter.github.io/assets-for-api-docs/assets/tests/colors/gbr.png'),
+          Image.network(
+            'https://flutter.github.io/assets-for-api-docs/assets/tests/colors/gbr.png',
+          ),
           Image.network('https://flutter.github.io/assets-for-api-docs/assets/tests/colors/tf.png'),
-          Image.network('https://flutter.github.io/assets-for-api-docs/assets/tests/colors/wide-gamut.png'),
+          Image.network(
+            'https://flutter.github.io/assets-for-api-docs/assets/tests/colors/wide-gamut.png',
+          ),
           const GradientRow(leftColor: Color(0xFFFF0000), rightColor: Color(0xFF00FF00)),
           const GradientRow(leftColor: Color(0xFF0000FF), rightColor: Color(0xFFFFFF00)),
           const GradientRow(leftColor: Color(0xFFFF0000), rightColor: Color(0xFF0000FF)),
@@ -52,7 +47,7 @@ class ColorDemoHome extends StatelessWidget {
 }
 
 class GradientRow extends StatelessWidget {
-  const GradientRow({ Key? key, required this.rightColor, required this.leftColor }) : super(key: key);
+  const GradientRow({super.key, required this.rightColor, required this.leftColor});
 
   final Color leftColor;
   final Color rightColor;
@@ -65,7 +60,7 @@ class GradientRow extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: <Color>[ leftColor, rightColor ],
+          colors: <Color>[leftColor, rightColor],
         ),
       ),
     );
@@ -73,22 +68,16 @@ class GradientRow extends StatelessWidget {
 }
 
 class ColorRow extends StatelessWidget {
-  const ColorRow({ Key? key, required this.color }) : super(key: key);
+  const ColorRow({super.key, required this.color});
 
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 100.0,
-      color: color,
-    );
+    return Container(height: 100.0, color: color);
   }
 }
 
 void main() {
-  runApp(const MaterialApp(
-    title: 'Color Testing Demo',
-    home: ColorDemoHome(),
-  ));
+  runApp(const MaterialApp(title: 'Color Testing Demo', home: ColorDemoHome()));
 }

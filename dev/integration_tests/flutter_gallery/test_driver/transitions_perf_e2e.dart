@@ -16,14 +16,14 @@ import 'run_demos.dart';
 //
 // These names are reported by the test app, see _handleMessages()
 // in transitions_perf.dart.
-List<String> _allDemos = kAllGalleryDemos.map(
-  (GalleryDemo demo) => '${demo.title}@${demo.category.name}',
-).toList();
+List<String> _allDemos = kAllGalleryDemos
+    .map((GalleryDemo demo) => '${demo.title}@${demo.category.name}')
+    .toList();
 
 void main([List<String> args = const <String>[]]) {
   final bool withSemantics = args.contains('--with_semantics');
   final IntegrationTestWidgetsFlutterBinding binding =
-      IntegrationTestWidgetsFlutterBinding.ensureInitialized() as IntegrationTestWidgetsFlutterBinding;
+      IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
   group('flutter gallery transitions on e2e', () {
     testWidgets('find.bySemanticsLabel', (WidgetTester tester) async {
@@ -31,24 +31,19 @@ void main([List<String> args = const <String>[]]) {
       await tester.pumpAndSettle();
       final int id = tester.getSemantics(find.bySemanticsLabel('Material')).id;
       expect(id, greaterThan(-1));
-    }, skip: !withSemantics, semanticsEnabled: true);
+    }, skip: !withSemantics);
 
-    testWidgets(
-      'all demos',
-      (WidgetTester tester) async {
-        runApp(const GalleryApp(testMode: true));
-        await tester.pumpAndSettle();
-        // Collect timeline data for just a limited set of demos to avoid OOMs.
-        await binding.watchPerformance(() async {
-          await runDemos(kProfiledDemos, tester);
-        });
+    testWidgets('all demos', (WidgetTester tester) async {
+      runApp(const GalleryApp(testMode: true));
+      await tester.pumpAndSettle();
+      // Collect timeline data for just a limited set of demos to avoid OOMs.
+      await binding.watchPerformance(() async {
+        await runDemos(kProfiledDemos, tester);
+      });
 
-        // Execute the remaining tests.
-        final Set<String> unprofiledDemos = Set<String>.from(_allDemos)
-          ..removeAll(kProfiledDemos);
-        await runDemos(unprofiledDemos.toList(), tester);
-      },
-      semanticsEnabled: withSemantics,
-    );
+      // Execute the remaining tests.
+      final unprofiledDemos = Set<String>.from(_allDemos)..removeAll(kProfiledDemos);
+      await runDemos(unprofiledDemos.toList(), tester);
+    }, semanticsEnabled: withSemantics);
   });
 }

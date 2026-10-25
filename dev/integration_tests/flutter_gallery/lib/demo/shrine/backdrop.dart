@@ -4,7 +4,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:flutter_gallery/demo/shrine/login.dart';
+import 'login.dart';
 
 const Cubic _kAccelerateCurve = Cubic(0.548, 0.0, 0.757, 0.464);
 const Cubic _kDecelerateCurve = Cubic(0.23, 0.94, 0.41, 1.0);
@@ -12,12 +12,7 @@ const double _kPeakVelocityTime = 0.248210;
 const double _kPeakVelocityProgress = 0.379146;
 
 class _TappableWhileStatusIs extends StatefulWidget {
-  const _TappableWhileStatusIs(
-      this.status, {
-        Key? key,
-        this.controller,
-        this.child,
-      }) : super(key: key);
+  const _TappableWhileStatusIs(this.status, {this.controller, this.child});
 
   final AnimationController? controller;
   final AnimationStatus status;
@@ -44,7 +39,7 @@ class _TappableWhileStatusIsState extends State<_TappableWhileStatusIs> {
   }
 
   void _handleStatusChange(AnimationStatus status) {
-    final bool value = widget.controller!.status == widget.status;
+    final value = widget.controller!.status == widget.status;
     if (_active != value) {
       setState(() {
         _active = value;
@@ -54,10 +49,7 @@ class _TappableWhileStatusIsState extends State<_TappableWhileStatusIs> {
 
   @override
   Widget build(BuildContext context) {
-    Widget child = AbsorbPointer(
-      absorbing: !_active!,
-      child: widget.child,
-    );
+    Widget child = AbsorbPointer(absorbing: !_active!, child: widget.child);
 
     if (!_active!) {
       child = FocusScope(
@@ -71,11 +63,7 @@ class _TappableWhileStatusIsState extends State<_TappableWhileStatusIs> {
 }
 
 class _FrontLayer extends StatelessWidget {
-  const _FrontLayer({
-    Key? key,
-    this.onTap,
-    this.child,
-  }) : super(key: key);
+  const _FrontLayer({this.onTap, this.child});
 
   final VoidCallback? onTap;
   final Widget? child;
@@ -93,14 +81,9 @@ class _FrontLayer extends StatelessWidget {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
-            child: Container(
-              height: 40.0,
-              alignment: AlignmentDirectional.centerStart,
-            ),
+            child: Container(height: 40.0, alignment: AlignmentDirectional.centerStart),
           ),
-          Expanded(
-            child: child!,
-          ),
+          Expanded(child: child!),
         ],
       ),
     );
@@ -109,12 +92,11 @@ class _FrontLayer extends StatelessWidget {
 
 class _BackdropTitle extends AnimatedWidget {
   const _BackdropTitle({
-    Key? key,
-    required Animation<double> listenable,
+    required Animation<double> super.listenable,
     this.onPress,
     required this.frontTitle,
     required this.backTitle,
-  }) : super(key: key, listenable: listenable);
+  });
 
   final void Function()? onPress;
   final Widget frontTitle;
@@ -128,64 +110,65 @@ class _BackdropTitle extends AnimatedWidget {
     );
 
     return DefaultTextStyle(
-      style: Theme.of(context).primaryTextTheme.headline6!,
+      style: Theme.of(context).primaryTextTheme.titleLarge!,
       softWrap: false,
       overflow: TextOverflow.ellipsis,
-      child: Row(children: <Widget>[
-        // branded icon
-        SizedBox(
-          width: 72.0,
-          child: IconButton(
-            padding: const EdgeInsets.only(right: 8.0),
-            onPressed: onPress,
-            icon: Stack(children: <Widget>[
-              Opacity(
-                opacity: animation.value,
-                child: const ImageIcon(AssetImage('packages/shrine_images/slanted_menu.png')),
+      child: Row(
+        children: <Widget>[
+          // branded icon
+          SizedBox(
+            width: 72.0,
+            child: IconButton(
+              padding: const EdgeInsets.only(right: 8.0),
+              onPressed: onPress,
+              icon: Stack(
+                children: <Widget>[
+                  Opacity(
+                    opacity: animation.value,
+                    child: const ImageIcon(AssetImage('packages/shrine_images/slanted_menu.png')),
+                  ),
+                  FractionalTranslation(
+                    translation: Tween<Offset>(
+                      begin: Offset.zero,
+                      end: const Offset(1.0, 0.0),
+                    ).evaluate(animation),
+                    child: const ImageIcon(AssetImage('packages/shrine_images/diamond.png')),
+                  ),
+                ],
               ),
-              FractionalTranslation(
-                translation: Tween<Offset>(
-                  begin: Offset.zero,
-                  end: const Offset(1.0, 0.0),
-                ).evaluate(animation),
-                child: const ImageIcon(AssetImage('packages/shrine_images/diamond.png')),
-              ),
-            ]),
+            ),
           ),
-        ),
-        // Here, we do a custom cross fade between backTitle and frontTitle.
-        // This makes a smooth animation between the two texts.
-        Stack(
-          children: <Widget>[
-            Opacity(
-              opacity: CurvedAnimation(
-                parent: ReverseAnimation(animation),
-                curve: const Interval(0.5, 1.0),
-              ).value,
-              child: FractionalTranslation(
-                translation: Tween<Offset>(
-                  begin: Offset.zero,
-                  end: const Offset(0.5, 0.0),
-                ).evaluate(animation),
-                child: backTitle,
+          // Here, we do a custom cross fade between backTitle and frontTitle.
+          // This makes a smooth animation between the two texts.
+          Stack(
+            children: <Widget>[
+              Opacity(
+                opacity: CurvedAnimation(
+                  parent: ReverseAnimation(animation),
+                  curve: const Interval(0.5, 1.0),
+                ).value,
+                child: FractionalTranslation(
+                  translation: Tween<Offset>(
+                    begin: Offset.zero,
+                    end: const Offset(0.5, 0.0),
+                  ).evaluate(animation),
+                  child: backTitle,
+                ),
               ),
-            ),
-            Opacity(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: const Interval(0.5, 1.0),
-              ).value,
-              child: FractionalTranslation(
-                translation: Tween<Offset>(
-                  begin: const Offset(-0.25, 0.0),
-                  end: Offset.zero,
-                ).evaluate(animation),
-                child: frontTitle,
+              Opacity(
+                opacity: CurvedAnimation(parent: animation, curve: const Interval(0.5, 1.0)).value,
+                child: FractionalTranslation(
+                  translation: Tween<Offset>(
+                    begin: const Offset(-0.25, 0.0),
+                    end: Offset.zero,
+                  ).evaluate(animation),
+                  child: frontTitle,
+                ),
               ),
-            ),
-          ],
-        ),
-      ]),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -198,13 +181,13 @@ class _BackdropTitle extends AnimatedWidget {
 /// front or back layer is showing.
 class Backdrop extends StatefulWidget {
   const Backdrop({
-    Key? key,
+    super.key,
     required this.frontLayer,
     required this.backLayer,
     required this.frontTitle,
     required this.backTitle,
     required this.controller,
-  }) : super(key: key);
+  });
 
   final Widget frontLayer;
   final Widget backLayer;
@@ -260,10 +243,7 @@ class _BackdropState extends State<Backdrop> with SingleTickerProviderStateMixin
       secondCurve = _kDecelerateCurve;
       firstWeight = _kPeakVelocityTime;
       secondWeight = 1.0 - _kPeakVelocityTime;
-      animation = CurvedAnimation(
-        parent: _controller!.view,
-        curve: const Interval(0.0, 0.78),
-      );
+      animation = CurvedAnimation(parent: _controller!.view, curve: const Interval(0.0, 0.78));
     } else {
       // These values are only used when the controller runs from t=1.0 to t=0.0
       firstCurve = _kDecelerateCurve.flipped;
@@ -273,43 +253,36 @@ class _BackdropState extends State<Backdrop> with SingleTickerProviderStateMixin
       animation = _controller!.view;
     }
 
-    return TweenSequence<RelativeRect>(
-      <TweenSequenceItem<RelativeRect>>[
-        TweenSequenceItem<RelativeRect>(
-          tween: RelativeRectTween(
-            begin: RelativeRect.fromLTRB(
-              0.0,
-              layerTop,
-              0.0,
-              layerTop - layerSize.height,
-            ),
-            end: RelativeRect.fromLTRB(
-              0.0,
-              layerTop * _kPeakVelocityProgress,
-              0.0,
-              (layerTop - layerSize.height) * _kPeakVelocityProgress,
-            ),
-          ).chain(CurveTween(curve: firstCurve)),
-          weight: firstWeight,
-        ),
-        TweenSequenceItem<RelativeRect>(
-          tween: RelativeRectTween(
-            begin: RelativeRect.fromLTRB(
-              0.0,
-              layerTop * _kPeakVelocityProgress,
-              0.0,
-              (layerTop - layerSize.height) * _kPeakVelocityProgress,
-            ),
-            end: RelativeRect.fill,
-          ).chain(CurveTween(curve: secondCurve)),
-          weight: secondWeight,
-        ),
-      ],
-    ).animate(animation);
+    return TweenSequence<RelativeRect>(<TweenSequenceItem<RelativeRect>>[
+      TweenSequenceItem<RelativeRect>(
+        tween: RelativeRectTween(
+          begin: RelativeRect.fromLTRB(0.0, layerTop, 0.0, layerTop - layerSize.height),
+          end: RelativeRect.fromLTRB(
+            0.0,
+            layerTop * _kPeakVelocityProgress,
+            0.0,
+            (layerTop - layerSize.height) * _kPeakVelocityProgress,
+          ),
+        ).chain(CurveTween(curve: firstCurve)),
+        weight: firstWeight,
+      ),
+      TweenSequenceItem<RelativeRect>(
+        tween: RelativeRectTween(
+          begin: RelativeRect.fromLTRB(
+            0.0,
+            layerTop * _kPeakVelocityProgress,
+            0.0,
+            (layerTop - layerSize.height) * _kPeakVelocityProgress,
+          ),
+          end: RelativeRect.fill,
+        ).chain(CurveTween(curve: secondCurve)),
+        weight: secondWeight,
+      ),
+    ]).animate(animation);
   }
 
   Widget _buildStack(BuildContext context, BoxConstraints constraints) {
-    const double layerTitleHeight = 48.0;
+    const layerTitleHeight = 48.0;
     final Size layerSize = constraints.biggest;
     final double layerTop = layerSize.height - layerTitleHeight;
 
@@ -340,7 +313,7 @@ class _BackdropState extends State<Backdrop> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final AppBar appBar = AppBar(
+    final appBar = AppBar(
       elevation: 0.0,
       titleSpacing: 0.0,
       title: _BackdropTitle(
@@ -372,9 +345,7 @@ class _BackdropState extends State<Backdrop> with SingleTickerProviderStateMixin
     );
     return Scaffold(
       appBar: appBar,
-      body: LayoutBuilder(
-        builder: _buildStack,
-      ),
+      body: LayoutBuilder(builder: _buildStack),
     );
   }
 }

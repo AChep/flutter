@@ -20,21 +20,18 @@ import 'framework.dart';
 abstract class UniqueWidget<T extends State<StatefulWidget>> extends StatefulWidget {
   /// Creates a widget that has exactly one inflated instance in the tree.
   ///
-  /// The [key] argument must not be null because it identifies the unique
-  /// inflated instance of this widget.
-  const UniqueWidget({
-    required GlobalKey<T> key,
-  }) : assert(key != null),
-       super(key: key);
+  /// The [key] argument is required because it identifies the unique inflated
+  /// instance of this widget.
+  const UniqueWidget({required GlobalKey<T> super.key});
 
   @override
-  T createState(); // ignore: no_logic_in_create_state, https://github.com/dart-lang/linter/issues/2345
+  T createState();
 
   /// The state for the unique inflated instance of this widget.
   ///
   /// Might be null if the widget is not currently in the tree.
   T? get currentState {
-    final GlobalKey<T> globalKey = key! as GlobalKey<T>;
+    final globalKey = key! as GlobalKey<T>;
     return globalKey.currentState;
   }
 }

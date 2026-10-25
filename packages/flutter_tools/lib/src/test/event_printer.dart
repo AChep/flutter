@@ -9,18 +9,15 @@ import 'watcher.dart';
 
 /// Prints JSON events when running a test in --machine mode.
 class EventPrinter extends TestWatcher {
-  EventPrinter({required StringSink out, TestWatcher? parent})
-    : _out = out,
-      _parent = parent;
+  EventPrinter({required this._out, this._parent});
 
   final StringSink _out;
   final TestWatcher? _parent;
 
   @override
-  void handleStartedDevice(Uri? observatoryUri) {
-    _sendEvent('test.startedProcess',
-        <String, dynamic>{'observatoryUri': observatoryUri?.toString()});
-    _parent?.handleStartedDevice(observatoryUri);
+  void handleStartedDevice(Uri? vmServiceUri) {
+    _sendEvent('test.startedProcess', <String, dynamic>{'vmServiceUri': vmServiceUri?.toString()});
+    _parent?.handleStartedDevice(vmServiceUri);
   }
 
   @override
@@ -38,8 +35,8 @@ class EventPrinter extends TestWatcher {
     return _parent?.handleFinishedTest(testDevice);
   }
 
-  void _sendEvent(String name, [ dynamic params ]) {
-    final Map<String, dynamic> map = <String, dynamic>{'event': name};
+  void _sendEvent(String name, [dynamic params]) {
+    final map = <String, dynamic>{'event': name};
     if (params != null) {
       map['params'] = params;
     }

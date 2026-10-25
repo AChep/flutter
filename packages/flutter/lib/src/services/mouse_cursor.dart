@@ -2,10 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/material.dart';
+/// @docImport 'package:flutter/rendering.dart';
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 
 import 'system_channels.dart';
+
+export 'package:flutter/foundation.dart' show DiagnosticLevel, DiagnosticPropertiesBuilder;
+export 'package:flutter/gestures.dart' show PointerEvent;
 
 /// Maintains the state of mouse cursors and manages how cursors are searched
 /// for.
@@ -16,8 +23,7 @@ class MouseCursorManager {
   ///
   /// The `fallbackMouseCursor` must not be [MouseCursor.defer] (typically
   /// [SystemMouseCursors.basic]).
-  MouseCursorManager(this.fallbackMouseCursor)
-    : assert(fallbackMouseCursor != MouseCursor.defer);
+  MouseCursorManager(this.fallbackMouseCursor) : assert(fallbackMouseCursor != MouseCursor.defer);
 
   /// The mouse cursor to use if all cursor candidates choose to defer.
   ///
@@ -63,11 +69,12 @@ class MouseCursorManager {
     }
 
     final MouseCursorSession? lastSession = _lastSession[device];
-    final MouseCursor nextCursor = _DeferringMouseCursor.firstNonDeferred(cursorCandidates)
-      ?? fallbackMouseCursor;
+    final MouseCursor nextCursor =
+        _DeferringMouseCursor.firstNonDeferred(cursorCandidates) ?? fallbackMouseCursor;
     assert(nextCursor is! _DeferringMouseCursor);
-    if (lastSession?.cursor == nextCursor)
+    if (lastSession?.cursor == nextCursor) {
       return;
+    }
 
     final MouseCursorSession nextSession = nextCursor.createSession(device);
     _lastSession[device] = nextSession;
@@ -98,11 +105,7 @@ class MouseCursorManager {
 ///    will no longer be used in the future.
 abstract class MouseCursorSession {
   /// Create a session.
-  ///
-  /// All arguments must be non-null.
-  MouseCursorSession(this.cursor, this.device)
-    : assert(cursor != null),
-      assert(device != null);
+  MouseCursorSession(this.cursor, this.device);
 
   /// The cursor that created this session.
   final MouseCursor cursor;
@@ -160,28 +163,12 @@ abstract class MouseCursorSession {
 /// another widget that exposes the [MouseRegion] API, such as
 /// [InkResponse.mouseCursor].
 ///
-/// {@tool snippet --template=stateless_widget_material}
+/// {@tool dartpad}
 /// This sample creates a rectangular region that is wrapped by a [MouseRegion]
 /// with a system mouse cursor. The mouse pointer becomes an I-beam when
 /// hovering over the region.
 ///
-/// ```dart
-/// Widget build(BuildContext context) {
-///   return Center(
-///     child: MouseRegion(
-///       cursor: SystemMouseCursors.text,
-///       child: Container(
-///         width: 200,
-///         height: 100,
-///         decoration: BoxDecoration(
-///           color: Colors.blue,
-///           border: Border.all(color: Colors.yellow),
-///         ),
-///       ),
-///     ),
-///   );
-/// }
-/// ```
+/// ** See code in examples/api/lib/services/mouse_cursor/mouse_cursor.0.dart **
 /// {@end-tool}
 ///
 /// Assigning regions with mouse cursors on platforms that do not support mouse
@@ -221,14 +208,15 @@ abstract class MouseCursor with Diagnosticable {
   /// to make debug information more readable. It is returned as the [toString]
   /// when the diagnostic level is at or above [DiagnosticLevel.info].
   ///
-  /// The [debugDescription] must not be null or empty string.
+  /// The [debugDescription] must not be empty.
   String get debugDescription;
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
     final String debugDescription = this.debugDescription;
-    if (minLevel.index >= DiagnosticLevel.info.index && debugDescription != null)
+    if (minLevel.index >= DiagnosticLevel.info.index) {
       return debugDescription;
+    }
     return super.toString(minLevel: minLevel);
   }
 
@@ -272,34 +260,37 @@ class _DeferringMouseCursor extends MouseCursor {
 
   /// Returns the first cursor that is not a [MouseCursor.defer].
   static MouseCursor? firstNonDeferred(Iterable<MouseCursor> cursors) {
-    for (final MouseCursor cursor in cursors) {
-      assert(cursor != null);
-      if (cursor != MouseCursor.defer)
+    for (final cursor in cursors) {
+      if (cursor != MouseCursor.defer) {
         return cursor;
+      }
     }
     return null;
   }
 }
 
 class _NoopMouseCursorSession extends MouseCursorSession {
-  _NoopMouseCursorSession(_NoopMouseCursor cursor, int device)
-    : super(cursor, device);
+  _NoopMouseCursorSession(_NoopMouseCursor super.cursor, super.device);
 
   @override
-  Future<void> activate() async { /* Nothing */ }
+  Future<void> activate() async {
+    /* Nothing */
+  }
 
   @override
-  void dispose() { /* Nothing */ }
+  void dispose() {
+    /* Nothing */
+  }
 }
 
 /// A mouse cursor that doesn't change the cursor when activated.
 ///
-/// Although setting a region's cursor to [NoopMouseCursor] doesn't change the
+/// Although setting a region's cursor to [_NoopMouseCursor] doesn't change the
 /// cursor, it blocks regions behind it from changing the cursor, in contrast to
 /// setting the cursor to null. More information about the usage of this class
-/// can be found at [MouseCursors.uncontrolled].
+/// can be found at [MouseCursor.uncontrolled].
 ///
-/// To use this class, use [MouseCursors.uncontrolled]. Directly
+/// To use this class, use [MouseCursor.uncontrolled]. Directly
 /// instantiating this class is not allowed.
 class _NoopMouseCursor extends MouseCursor {
   // Application code shouldn't directly instantiate this class, since its only
@@ -315,25 +306,23 @@ class _NoopMouseCursor extends MouseCursor {
 }
 
 class _SystemMouseCursorSession extends MouseCursorSession {
-  _SystemMouseCursorSession(SystemMouseCursor cursor, int device)
-    : super(cursor, device);
+  _SystemMouseCursorSession(SystemMouseCursor super.cursor, super.device);
 
   @override
   SystemMouseCursor get cursor => super.cursor as SystemMouseCursor;
 
   @override
   Future<void> activate() {
-    return SystemChannels.mouseCursor.invokeMethod<void>(
-      'activateSystemCursor',
-      <String, dynamic>{
-        'device': device,
-        'kind': cursor.kind,
-      },
-    );
+    return SystemChannels.mouseCursor.invokeMethod<void>('activateSystemCursor', <String, dynamic>{
+      'device': device,
+      'kind': cursor.kind,
+    });
   }
 
   @override
-  void dispose() { /* Nothing */ }
+  void dispose() {
+    /* Nothing */
+  }
 }
 
 /// A mouse cursor that is natively supported on the platform that the
@@ -355,6 +344,7 @@ class _SystemMouseCursorSession extends MouseCursorSession {
 ///  * Android: API name in Java
 ///  * Web: CSS cursor
 ///  * Windows: Win32 API
+///  * Windows UWP: WinRT API, `winrt::Windows::UI::Core::CoreCursorType`
 ///  * Linux: GDK, `gdk_cursor_new_from_name`
 ///  * macOS: API name in Objective C
 ///
@@ -367,9 +357,7 @@ class _SystemMouseCursorSession extends MouseCursorSession {
 class SystemMouseCursor extends MouseCursor {
   // Application code shouldn't directly instantiate system mouse cursors, since
   // the supported system cursors are enumerated in [SystemMouseCursors].
-  const SystemMouseCursor._({
-    required this.kind,
-  }) : assert(kind != null);
+  const SystemMouseCursor._({required this.kind});
 
   /// A string that identifies the kind of the cursor.
   ///
@@ -385,10 +373,10 @@ class SystemMouseCursor extends MouseCursor {
 
   @override
   bool operator ==(Object other) {
-    if (other.runtimeType != runtimeType)
+    if (other.runtimeType != runtimeType) {
       return false;
-    return other is SystemMouseCursor
-        && other.kind == kind;
+    }
+    return other is SystemMouseCursor && other.kind == kind;
   }
 
   @override
@@ -414,27 +402,21 @@ class SystemMouseCursor extends MouseCursor {
 /// The cursors should be named based on the cursors' use cases instead of their
 /// appearance, because different platforms might (although not commonly) use
 /// different shapes for the same use case.
-class SystemMouseCursors {
-  // This class only contains static members, and should not be instantiated or
-  // extended.
-  SystemMouseCursors._();
-
+abstract final class SystemMouseCursors {
   // The mapping in this class must be kept in sync with the following files in
   // the engine:
   //
   // * Android: shell/platform/android/io/flutter/plugin/mouse/MouseCursorPlugin.java
   // * Web: lib/web_ui/lib/src/engine/mouse_cursor.dart
-  // * Windows: shell/platform/windows/win32_flutter_window.cc
+  // * Windows: shell/platform/windows/flutter_windows_engine.cc
   // * Linux: shell/platform/linux/fl_mouse_cursor_plugin.cc
   // * macOS: shell/platform/darwin/macos/framework/Source/FlutterMouseCursorPlugin.mm
-
 
   /// Hide the cursor.
   ///
   /// Any cursor other than [none] or [MouseCursor.uncontrolled] unhides the
   /// cursor.
   static const SystemMouseCursor none = SystemMouseCursor._(kind: 'none');
-
 
   // STATUS
 
@@ -447,6 +429,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_DEFAULT, TYPE_ARROW
   ///  * Web: default
   ///  * Windows: IDC_ARROW
+  ///  * Windows UWP: CoreCursorType::Arrow
   ///  * Linux: default
   ///  * macOS: arrowCursor
   static const SystemMouseCursor basic = SystemMouseCursor._(kind: 'basic');
@@ -460,6 +443,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_HAND
   ///  * Web: pointer
   ///  * Windows: IDC_HAND
+  ///  * Windows UWP: CoreCursorType::Hand
   ///  * Linux: pointer
   ///  * macOS: pointingHandCursor
   static const SystemMouseCursor click = SystemMouseCursor._(kind: 'click');
@@ -474,6 +458,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_NO_DROP
   ///  * Web: not-allowed
   ///  * Windows: IDC_NO
+  ///  * Windows UWP: CoreCursorType::UniversalNo
   ///  * Linux: not-allowed
   ///  * macOS: operationNotAllowedCursor
   ///
@@ -543,10 +528,10 @@ class SystemMouseCursors {
   ///
   ///  * Android: TYPE_HELP
   ///  * Windows: IDC_HELP
+  ///  * Windows UWP: CoreCursorType::Help
   ///  * Web: help
   ///  * Linux: help
   static const SystemMouseCursor help = SystemMouseCursor._(kind: 'help');
-
 
   // SELECTION
 
@@ -559,6 +544,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_TEXT
   ///  * Web: text
   ///  * Windows: IDC_IBEAM
+  ///  * Windows UWP: CoreCursorType::IBeam
   ///  * Linux: text
   ///  * macOS: IBeamCursor
   static const SystemMouseCursor text = SystemMouseCursor._(kind: 'text');
@@ -597,10 +583,10 @@ class SystemMouseCursors {
   ///  * Android: TYPE_CROSSHAIR
   ///  * Web: crosshair
   ///  * Windows: IDC_CROSS
+  ///  * Windows UWP: CoreCursorType::Cross
   ///  * Linux: crosshair
   ///  * macOS: crosshairCursor
   static const SystemMouseCursor precise = SystemMouseCursor._(kind: 'precise');
-
 
   // DRAG-AND-DROP
 
@@ -612,6 +598,7 @@ class SystemMouseCursors {
   ///
   ///  * Android: TYPE_ALL_SCROLL
   ///  * Windows: IDC_SIZEALL
+  ///  * Windows UWP: CoreCursorType::SizeAll
   ///  * Web: move
   ///  * Linux: move
   static const SystemMouseCursor move = SystemMouseCursor._(kind: 'move');
@@ -650,6 +637,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_NO_DROP
   ///  * Web: no-drop
   ///  * Windows: IDC_NO
+  ///  * Windows UWP: CoreCursorType::UniversalNo
   ///  * Linux: no-drop
   ///  * macOS: operationNotAllowedCursor
   ///
@@ -693,7 +681,6 @@ class SystemMouseCursors {
   ///  * macOS: disappearingItemCursor
   static const SystemMouseCursor disappearing = SystemMouseCursor._(kind: 'disappearing');
 
-
   // RESIZING AND SCROLLING
 
   /// A cursor indicating scrolling in any direction.
@@ -704,6 +691,7 @@ class SystemMouseCursors {
   ///
   ///  * Android: TYPE_ALL_SCROLL
   ///  * Windows: IDC_SIZEALL
+  ///  * Windows UWP: CoreCursorType::SizeAll
   ///  * Web: all-scroll
   ///  * Linux: all-scroll
   ///
@@ -722,6 +710,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_HORIZONTAL_DOUBLE_ARROW
   ///  * Web: ew-resize
   ///  * Windows: IDC_SIZEWE
+  ///  * Windows UWP: CoreCursorType::SizeWestEast
   ///  * Linux: ew-resize
   ///  * macOS: resizeLeftRightCursor
   static const SystemMouseCursor resizeLeftRight = SystemMouseCursor._(kind: 'resizeLeftRight');
@@ -736,6 +725,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_VERTICAL_DOUBLE_ARROW
   ///  * Web: ns-resize
   ///  * Windows: IDC_SIZENS
+  ///  * Windows UWP: CoreCursorType::SizeNorthSouth
   ///  * Linux: ns-resize
   ///  * macOS: resizeUpDownCursor
   static const SystemMouseCursor resizeUpDown = SystemMouseCursor._(kind: 'resizeUpDown');
@@ -750,8 +740,11 @@ class SystemMouseCursors {
   ///  * Android: TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW
   ///  * Web: nwse-resize
   ///  * Windows: IDC_SIZENWSE
+  ///  * Windows UWP: CoreCursorType::SizeNorthwestSoutheast
   ///  * Linux: nwse-resize
-  static const SystemMouseCursor resizeUpLeftDownRight = SystemMouseCursor._(kind: 'resizeUpLeftDownRight');
+  static const SystemMouseCursor resizeUpLeftDownRight = SystemMouseCursor._(
+    kind: 'resizeUpLeftDownRight',
+  );
 
   /// A cursor indicating resizing an object bidirectionally from its top right or
   /// bottom left corner.
@@ -762,9 +755,12 @@ class SystemMouseCursors {
   ///
   ///  * Android: TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW
   ///  * Windows: IDC_SIZENESW
+  ///  * Windows UWP: CoreCursorType::SizeNortheastSouthwest
   ///  * Web: nesw-resize
   ///  * Linux: nesw-resize
-  static const SystemMouseCursor resizeUpRightDownLeft = SystemMouseCursor._(kind: 'resizeUpRightDownLeft');
+  static const SystemMouseCursor resizeUpRightDownLeft = SystemMouseCursor._(
+    kind: 'resizeUpRightDownLeft',
+  );
 
   /// A cursor indicating resizing an object from its top edge.
   ///
@@ -775,6 +771,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_VERTICAL_DOUBLE_ARROW
   ///  * Web: n-resize
   ///  * Windows: IDC_SIZENS
+  ///  * Windows UWP: CoreCursorType::SizeNorthSouth
   ///  * Linux: n-resize
   ///  * macOS: resizeUpCursor
   static const SystemMouseCursor resizeUp = SystemMouseCursor._(kind: 'resizeUp');
@@ -788,6 +785,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_VERTICAL_DOUBLE_ARROW
   ///  * Web: s-resize
   ///  * Windows: IDC_SIZENS
+  ///  * Windows UWP: CoreCursorType::SizeNorthSouth
   ///  * Linux: s-resize
   ///  * macOS: resizeDownCursor
   static const SystemMouseCursor resizeDown = SystemMouseCursor._(kind: 'resizeDown');
@@ -801,6 +799,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_HORIZONTAL_DOUBLE_ARROW
   ///  * Web: w-resize
   ///  * Windows: IDC_SIZEWE
+  ///  * Windows UWP: CoreCursorType::SizeWestEast
   ///  * Linux: w-resize
   ///  * macOS: resizeLeftCursor
   static const SystemMouseCursor resizeLeft = SystemMouseCursor._(kind: 'resizeLeft');
@@ -814,6 +813,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_HORIZONTAL_DOUBLE_ARROW
   ///  * Web: e-resize
   ///  * Windows: IDC_SIZEWE
+  ///  * Windows UWP: CoreCursorType::SizeWestEast
   ///  * Linux: e-resize
   ///  * macOS: resizeRightCursor
   static const SystemMouseCursor resizeRight = SystemMouseCursor._(kind: 'resizeRight');
@@ -827,6 +827,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW
   ///  * Web: nw-resize
   ///  * Windows: IDC_SIZENWSE
+  ///  * Windows UWP: CoreCursorType::SizeNorthwestSoutheast
   ///  * Linux: nw-resize
   static const SystemMouseCursor resizeUpLeft = SystemMouseCursor._(kind: 'resizeUpLeft');
 
@@ -839,6 +840,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW
   ///  * Web: ne-resize
   ///  * Windows: IDC_SIZENESW
+  ///  * Windows UWP: CoreCursorType::SizeNortheastSouthwest
   ///  * Linux: ne-resize
   static const SystemMouseCursor resizeUpRight = SystemMouseCursor._(kind: 'resizeUpRight');
 
@@ -851,6 +853,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_TOP_RIGHT_DIAGONAL_DOUBLE_ARROW
   ///  * Web: sw-resize
   ///  * Windows: IDC_SIZENESW
+  ///  * Windows UWP: CoreCursorType::SizeNortheastSouthwest
   ///  * Linux: sw-resize
   static const SystemMouseCursor resizeDownLeft = SystemMouseCursor._(kind: 'resizeDownLeft');
 
@@ -863,6 +866,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_TOP_LEFT_DIAGONAL_DOUBLE_ARROW
   ///  * Web: se-resize
   ///  * Windows: IDC_SIZENWSE
+  ///  * Windows UWP: CoreCursorType::SizeNorthwestSoutheast
   ///  * Linux: se-resize
   static const SystemMouseCursor resizeDownRight = SystemMouseCursor._(kind: 'resizeDownRight');
 
@@ -876,6 +880,7 @@ class SystemMouseCursors {
   ///  * Android: TYPE_HORIZONTAL_DOUBLE_ARROW
   ///  * Web: col-resize
   ///  * Windows: IDC_SIZEWE
+  ///  * Windows UWP: CoreCursorType::SizeWestEast
   ///  * Linux: col-resize
   ///  * macOS: resizeLeftRightCursor
   static const SystemMouseCursor resizeColumn = SystemMouseCursor._(kind: 'resizeColumn');
@@ -890,10 +895,10 @@ class SystemMouseCursors {
   ///  * Android: TYPE_VERTICAL_DOUBLE_ARROW
   ///  * Web: row-resize
   ///  * Windows: IDC_SIZENS
+  ///  * Windows UWP: CoreCursorType::SizeNorthSouth
   ///  * Linux: row-resize
   ///  * macOS: resizeUpDownCursor
   static const SystemMouseCursor resizeRow = SystemMouseCursor._(kind: 'resizeRow');
-
 
   // OTHER OPERATIONS
 
