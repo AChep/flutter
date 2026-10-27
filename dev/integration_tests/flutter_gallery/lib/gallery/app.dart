@@ -8,11 +8,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart' show timeDilation;
-import 'package:flutter_gallery/demo/shrine/model/app_state_model.dart';
 import 'package:scoped_model/scoped_model.dart';
-
 import 'package:url_launcher/url_launcher.dart';
 
+import '../demo/shrine/model/app_state_model.dart';
 import 'demos.dart';
 import 'home.dart';
 import 'options.dart';
@@ -22,14 +21,14 @@ import 'updater.dart';
 
 class GalleryApp extends StatefulWidget {
   const GalleryApp({
-    Key? key,
+    super.key,
     this.updateUrlFetcher,
     this.enablePerformanceOverlay = true,
     this.enableRasterCacheImagesCheckerboard = true,
     this.enableOffscreenLayersCheckerboard = true,
     this.onSendFeedback,
     this.testMode = false,
-  }) : super(key: key);
+  });
 
   final UpdateUrlFetcher? updateUrlFetcher;
   final bool enablePerformanceOverlay;
@@ -105,10 +104,10 @@ class _GalleryAppState extends State<GalleryApp> {
   Widget _applyTextScaleFactor(Widget child) {
     return Builder(
       builder: (BuildContext context) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaleFactor: _options!.textScaleFactor!.scale,
-          ),
+        final double? textScaleFactor = _options!.textScaleFactor!.scale;
+        return MediaQuery.withClampedTextScaling(
+          minScaleFactor: textScaleFactor ?? 0.0,
+          maxScaleFactor: textScaleFactor ?? double.infinity,
           child: child,
         );
       },
@@ -122,17 +121,19 @@ class _GalleryAppState extends State<GalleryApp> {
       optionsPage: GalleryOptionsPage(
         options: _options,
         onOptionsChanged: _handleOptionsChanged,
-        onSendFeedback: widget.onSendFeedback ?? () {
-          launch('https://github.com/flutter/flutter/issues/new/choose', forceSafariVC: false);
-        },
+        onSendFeedback:
+            widget.onSendFeedback ??
+            () {
+              launchUrl(
+                Uri.parse('https://github.com/flutter/flutter/issues/new/choose'),
+                mode: LaunchMode.externalApplication,
+              );
+            },
       ),
     );
 
     if (widget.updateUrlFetcher != null) {
-      home = Updater(
-        updateUrlFetcher: widget.updateUrlFetcher!,
-        child: home,
-      );
+      home = Updater(updateUrlFetcher: widget.updateUrlFetcher!, child: home);
     }
 
     return ScopedModel<AppStateModel>(
@@ -143,8 +144,14 @@ class _GalleryAppState extends State<GalleryApp> {
         // PrimaryScrollController. The gallery needs to be migrated before
         // enabling this. https://github.com/flutter/gallery/issues/523
         scrollBehavior: const MaterialScrollBehavior().copyWith(scrollbars: false),
-        theme: kLightGalleryTheme.copyWith(platform: _options!.platform, visualDensity: _options!.visualDensity!.visualDensity),
-        darkTheme: kDarkGalleryTheme.copyWith(platform: _options!.platform, visualDensity: _options!.visualDensity!.visualDensity),
+        theme: kLightGalleryTheme.copyWith(
+          platform: _options!.platform,
+          visualDensity: _options!.visualDensity!.visualDensity,
+        ),
+        darkTheme: kDarkGalleryTheme.copyWith(
+          platform: _options!.platform,
+          visualDensity: _options!.visualDensity!.visualDensity,
+        ),
         themeMode: _options!.themeMode,
         title: 'Flutter Gallery',
         color: Colors.grey,
@@ -159,14 +166,14 @@ class _GalleryAppState extends State<GalleryApp> {
               // Specifically use a blank Cupertino theme here and do not transfer
               // over the Material primary color etc except the brightness to
               // showcase standard iOS looks.
-              Builder(builder: (BuildContext context) {
-                return CupertinoTheme(
-                  data: CupertinoThemeData(
-                    brightness: Theme.of(context).brightness,
-                  ),
-                  child: child!,
-                );
-              }),
+              Builder(
+                builder: (BuildContext context) {
+                  return CupertinoTheme(
+                    data: CupertinoThemeData(brightness: Theme.brightnessOf(context)),
+                    child: child!,
+                  );
+                },
+              ),
             ),
           );
         },

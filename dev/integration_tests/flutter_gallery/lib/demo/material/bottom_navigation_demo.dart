@@ -22,13 +22,10 @@ class NavigationIconView {
          label: title,
          backgroundColor: color,
        ),
-       controller = AnimationController(
-         duration: kThemeAnimationDuration,
-         vsync: vsync,
-       ) {
-    _animation = controller.drive(CurveTween(
-      curve: const Interval(0.5, 1.0, curve: Curves.fastOutSlowIn),
-    ));
+       controller = AnimationController(duration: kThemeAnimationDuration, vsync: vsync) {
+    _animation = controller.drive(
+      CurveTween(curve: const Interval(0.5, 1.0, curve: Curves.fastOutSlowIn)),
+    );
   }
 
   final Widget _icon;
@@ -40,14 +37,15 @@ class NavigationIconView {
 
   FadeTransition transition(BottomNavigationBarType type, BuildContext context) {
     Color? iconColor;
-    if (type == BottomNavigationBarType.shifting) {
-      iconColor = _color;
-    } else {
-      final ThemeData theme = Theme.of(context);
-      final ColorScheme colorScheme = theme.colorScheme;
-      iconColor = theme.brightness == Brightness.light
-          ? colorScheme.primary
-          : colorScheme.secondary;
+    switch (type) {
+      case BottomNavigationBarType.shifting:
+        iconColor = _color;
+      case BottomNavigationBarType.fixed:
+        final ThemeData theme = Theme.of(context);
+        iconColor = switch (theme.brightness) {
+          Brightness.light => theme.colorScheme.primary,
+          Brightness.dark => theme.colorScheme.secondary,
+        };
     }
 
     return FadeTransition(
@@ -60,14 +58,8 @@ class NavigationIconView {
           ),
         ),
         child: IconTheme(
-          data: IconThemeData(
-            color: iconColor,
-            size: 120.0,
-          ),
-          child: Semantics(
-            label: 'Placeholder for $_title tab',
-            child: _icon,
-          ),
+          data: IconThemeData(color: iconColor, size: 120.0),
+          child: Semantics(label: 'Placeholder for $_title tab', child: _icon),
         ),
       ),
     );
@@ -75,7 +67,7 @@ class NavigationIconView {
 }
 
 class CustomIcon extends StatelessWidget {
-  const CustomIcon({Key? key}) : super(key: key);
+  const CustomIcon({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +82,7 @@ class CustomIcon extends StatelessWidget {
 }
 
 class CustomInactiveIcon extends StatelessWidget {
-  const CustomInactiveIcon({Key? key}) : super(key: key);
+  const CustomInactiveIcon({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -99,15 +91,13 @@ class CustomInactiveIcon extends StatelessWidget {
       margin: const EdgeInsets.all(4.0),
       width: iconTheme.size! - 8.0,
       height: iconTheme.size! - 8.0,
-      decoration: BoxDecoration(
-        border: Border.all(color: iconTheme.color!, width: 2.0),
-      ),
+      decoration: BoxDecoration(border: Border.all(color: iconTheme.color!, width: 2.0)),
     );
   }
 }
 
 class BottomNavigationDemo extends StatefulWidget {
-  const BottomNavigationDemo({Key? key}) : super(key: key);
+  const BottomNavigationDemo({super.key});
 
   static const String routeName = '/material/bottom_navigation';
 
@@ -115,8 +105,7 @@ class BottomNavigationDemo extends StatefulWidget {
   State<BottomNavigationDemo> createState() => _BottomNavigationDemoState();
 }
 
-class _BottomNavigationDemoState extends State<BottomNavigationDemo>
-    with TickerProviderStateMixin {
+class _BottomNavigationDemoState extends State<BottomNavigationDemo> with TickerProviderStateMixin {
   int _currentIndex = 0;
   BottomNavigationBarType _type = BottomNavigationBarType.shifting;
   late List<NavigationIconView> _navigationViews;
@@ -165,13 +154,14 @@ class _BottomNavigationDemoState extends State<BottomNavigationDemo>
 
   @override
   void dispose() {
-    for (final NavigationIconView view in _navigationViews)
+    for (final NavigationIconView view in _navigationViews) {
       view.controller.dispose();
+    }
     super.dispose();
   }
 
   Widget _buildTransitionsStack() {
-    final List<FadeTransition> transitions = <FadeTransition>[
+    final transitions = <FadeTransition>[
       for (final NavigationIconView view in _navigationViews) view.transition(_type, context),
     ];
 
@@ -189,7 +179,7 @@ class _BottomNavigationDemoState extends State<BottomNavigationDemo>
 
   @override
   Widget build(BuildContext context) {
-    final BottomNavigationBar botNavBar = BottomNavigationBar(
+    final botNavBar = BottomNavigationBar(
       items: _navigationViews
           .map<BottomNavigationBarItem>((NavigationIconView navigationView) => navigationView.item)
           .toList(),
@@ -228,9 +218,7 @@ class _BottomNavigationDemoState extends State<BottomNavigationDemo>
           ),
         ],
       ),
-      body: Center(
-        child: _buildTransitionsStack(),
-      ),
+      body: Center(child: _buildTransitionsStack()),
       bottomNavigationBar: botNavBar,
     );
   }

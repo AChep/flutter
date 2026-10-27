@@ -2,16 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../rendering/mock_canvas.dart';
 import 'test_widgets.dart';
 
 void main() {
+  const debugBlue = Color(0xFF0000FF);
+  const debugGreen = Color(0xFF00FF00);
+  const debugBlack = Color(0xFF000000);
+  const debugRed = Color(0xFFFF0000);
   testWidgets('ListView mount/dismount smoke test', (WidgetTester tester) async {
-    final List<int> callbackTracker = <int>[];
+    final callbackTracker = <int>[];
 
     // the root view is 800x600 in the test environment
     // so if our widget is 100 pixels tall, it should fit exactly 6 times.
@@ -23,11 +26,7 @@ void main() {
           left: ListView.builder(
             itemBuilder: (BuildContext context, int index) {
               callbackTracker.add(index);
-              return SizedBox(
-                key: ValueKey<int>(index),
-                height: 100.0,
-                child: Text('$index'),
-              );
+              return SizedBox(key: ValueKey<int>(index), height: 100.0, child: Text('$index'));
             },
           ),
           right: const Text('Not Today'),
@@ -39,10 +38,13 @@ void main() {
 
     final FlipWidgetState testWidget = tester.state(find.byType(FlipWidget));
 
-    expect(callbackTracker, equals(<int>[
-      0, 1, 2, 3, 4, 5, // visible
-      6, 7, 8, // in cached area
-    ]));
+    expect(
+      callbackTracker,
+      equals(<int>[
+        0, 1, 2, 3, 4, 5, // visible
+        6, 7, 8, // in cached area
+      ]),
+    );
 
     callbackTracker.clear();
     testWidget.flip();
@@ -54,14 +56,17 @@ void main() {
     testWidget.flip();
     await tester.pump();
 
-    expect(callbackTracker, equals(<int>[
-      0, 1, 2, 3, 4, 5, // visible
-      6, 7, 8, // in cached area
-    ]));
+    expect(
+      callbackTracker,
+      equals(<int>[
+        0, 1, 2, 3, 4, 5, // visible
+        6, 7, 8, // in cached area
+      ]),
+    );
   });
 
   testWidgets('ListView vertical', (WidgetTester tester) async {
-    final List<int> callbackTracker = <int>[];
+    final callbackTracker = <int>[];
 
     // the root view is 800x600 in the test environment
     // so if our widget is 200 pixels tall, it should fit exactly 3 times.
@@ -78,13 +83,13 @@ void main() {
     }
 
     Widget builder() {
+      final controller = ScrollController(initialScrollOffset: 300.0);
+      addTearDown(controller.dispose);
+
       return Directionality(
         textDirection: TextDirection.ltr,
         child: FlipWidget(
-          left: ListView.builder(
-            controller: ScrollController(initialScrollOffset: 300.0),
-            itemBuilder: itemBuilder,
-          ),
+          left: ListView.builder(controller: controller, itemBuilder: itemBuilder),
           right: const Text('Not Today'),
         ),
       );
@@ -93,10 +98,13 @@ void main() {
     await tester.pumpWidget(builder());
 
     // 0 is built to find its height
-    expect(callbackTracker, equals(<int>[
-      0, 1, 2, 3, 4,
-      5, // in cached area
-    ]));
+    expect(
+      callbackTracker,
+      equals(<int>[
+        0, 1, 2, 3, 4,
+        5, // in cached area
+      ]),
+    );
     callbackTracker.clear();
 
     final ScrollableState scrollable = tester.state(find.byType(Scrollable));
@@ -105,26 +113,32 @@ void main() {
     await tester.pumpWidget(builder());
 
     // We build the visible children to find their new size.
-    expect(callbackTracker, equals(<int>[
-      0, 1, 2,
-      3, 4, 5, //visible
-      6, 7,
-    ]));
+    expect(
+      callbackTracker,
+      equals(<int>[
+        0, 1, 2,
+        3, 4, 5, //visible
+        6, 7,
+      ]),
+    );
     callbackTracker.clear();
 
     await tester.pumpWidget(builder());
 
     // 0 isn't built because they're not visible.
-    expect(callbackTracker, equals(<int>[
-      1, 2,
-      3, 4, 5, // visible
-      6, 7,
-    ]));
+    expect(
+      callbackTracker,
+      equals(<int>[
+        1, 2,
+        3, 4, 5, // visible
+        6, 7,
+      ]),
+    );
     callbackTracker.clear();
   });
 
   testWidgets('ListView horizontal', (WidgetTester tester) async {
-    final List<int> callbackTracker = <int>[];
+    final callbackTracker = <int>[];
 
     // the root view is 800x600 in the test environment
     // so if our widget is 200 pixels wide, it should fit exactly 4 times.
@@ -141,12 +155,15 @@ void main() {
     }
 
     Widget builder() {
+      final controller = ScrollController(initialScrollOffset: 500.0);
+      addTearDown(controller.dispose);
+
       return Directionality(
         textDirection: TextDirection.ltr,
         child: FlipWidget(
           left: ListView.builder(
             scrollDirection: Axis.horizontal,
-            controller: ScrollController(initialScrollOffset: 500.0),
+            controller: controller,
             itemBuilder: itemBuilder,
           ),
           right: const Text('Not Today'),
@@ -178,8 +195,8 @@ void main() {
   });
 
   testWidgets('ListView reinvoke builders', (WidgetTester tester) async {
-    final List<int> callbackTracker = <int>[];
-    final List<String?> text = <String?>[];
+    final callbackTracker = <int>[];
+    final text = <String?>[];
 
     Widget itemBuilder(BuildContext context, int index) {
       callbackTracker.add(index);
@@ -192,25 +209,27 @@ void main() {
     }
 
     void collectText(Widget widget) {
-      if (widget is Text)
+      if (widget is Text) {
         text.add(widget.data);
+      }
     }
 
     Widget builder() {
       return Directionality(
         textDirection: TextDirection.ltr,
-        child: ListView.builder(
-          itemBuilder: itemBuilder,
-        ),
+        child: ListView.builder(itemBuilder: itemBuilder),
       );
     }
 
     await tester.pumpWidget(builder());
 
-    expect(callbackTracker, equals(<int>[
-      0, 1, 2,
-      3, // in cached area
-    ]));
+    expect(
+      callbackTracker,
+      equals(<int>[
+        0, 1, 2,
+        3, // in cached area
+      ]),
+    );
     callbackTracker.clear();
     tester.allWidgets.forEach(collectText);
     expect(text, equals(<String>['0', '1', '2', '3']));
@@ -218,10 +237,13 @@ void main() {
 
     await tester.pumpWidget(builder());
 
-    expect(callbackTracker, equals(<int>[
-      0, 1, 2,
-      3, // in cached area
-    ]));
+    expect(
+      callbackTracker,
+      equals(<int>[
+        0, 1, 2,
+        3, // in cached area
+      ]),
+    );
     callbackTracker.clear();
     tester.allWidgets.forEach(collectText);
     expect(text, equals(<String>['0', '1', '2', '3']));
@@ -230,21 +252,17 @@ void main() {
 
   testWidgets('ListView reinvoke builders', (WidgetTester tester) async {
     late StateSetter setState;
-    ThemeData themeData = ThemeData.light();
+    var itemColor = debugBlue;
 
     Widget itemBuilder(BuildContext context, int index) {
       return Container(
         key: ValueKey<int>(index),
         width: 500.0, // this should be ignored
         height: 220.0,
-        color: Theme.of(context).primaryColor,
+        color: itemColor,
         child: Text('$index', textDirection: TextDirection.ltr),
       );
     }
-
-    final Widget viewport = ListView.builder(
-      itemBuilder: itemBuilder,
-    );
 
     await tester.pumpWidget(
       Directionality(
@@ -252,23 +270,23 @@ void main() {
         child: StatefulBuilder(
           builder: (BuildContext context, StateSetter setter) {
             setState = setter;
-            return Theme(data: themeData, child: viewport);
+            return ListView.builder(itemBuilder: itemBuilder);
           },
         ),
       ),
     );
 
     Container widget = tester.firstWidget(find.byType(Container));
-    expect(widget.color, equals(Colors.blue));
+    expect(widget.color, equals(debugBlue));
 
     setState(() {
-      themeData = ThemeData(primarySwatch: Colors.green);
+      itemColor = debugGreen;
     });
 
     await tester.pump();
 
     widget = tester.firstWidget(find.byType(Container));
-    expect(widget.color, equals(Colors.green));
+    expect(widget.color, equals(debugGreen));
   });
 
   testWidgets('ListView padding', (WidgetTester tester) async {
@@ -277,7 +295,7 @@ void main() {
         key: ValueKey<int>(index),
         width: 500.0, // this should be ignored
         height: 220.0,
-        color: Colors.green[500],
+        color: debugGreen,
         child: Text('$index', textDirection: TextDirection.ltr),
       );
     }
@@ -325,20 +343,20 @@ void main() {
     expect(
       list.toStringDeep(minLevel: DiagnosticLevel.info),
       equalsIgnoringHashCodes(
-        'RenderSliverList#00000 relayoutBoundary=up1\n'
+        'RenderSliverList#00000 relayoutBoundary=up2\n'
         ' │ needs compositing\n'
         ' │ parentData: paintOffset=Offset(0.0, 0.0) (can use size)\n'
         ' │ constraints: SliverConstraints(AxisDirection.down,\n'
         ' │   GrowthDirection.forward, ScrollDirection.idle, scrollOffset:\n'
-        ' │   0.0, remainingPaintExtent: 600.0, crossAxisExtent: 800.0,\n'
-        ' │   crossAxisDirection: AxisDirection.right,\n'
-        ' │   viewportMainAxisExtent: 600.0, remainingCacheExtent: 850.0,\n'
-        ' │   cacheOrigin: 0.0)\n'
+        ' │   0.0, precedingScrollExtent: 0.0, remainingPaintExtent: 600.0,\n'
+        ' │   crossAxisExtent: 800.0, crossAxisDirection:\n'
+        ' │   AxisDirection.right, viewportMainAxisExtent: 600.0,\n'
+        ' │   remainingCacheExtent: 850.0, cacheOrigin: 0.0)\n'
         ' │ geometry: SliverGeometry(scrollExtent: 300.0, paintExtent: 300.0,\n'
         ' │   maxPaintExtent: 300.0, cacheExtent: 300.0)\n'
         ' │ currently live children: 0 to 2\n'
         ' │\n'
-        ' ├─child with index 0: RenderRepaintBoundary#00000 relayoutBoundary=up2\n'
+        ' ├─child with index 0: RenderRepaintBoundary#00000 relayoutBoundary=up3\n'
         ' │ │ needs compositing\n'
         ' │ │ parentData: index=0; layoutOffset=0.0 (can use size)\n'
         ' │ │ constraints: BoxConstraints(w=800.0, 0.0<=h<=Infinity)\n'
@@ -348,7 +366,7 @@ void main() {
         ' │ │ diagnosis: insufficient data to draw conclusion (less than five\n'
         ' │ │   repaints)\n'
         ' │ │\n'
-        ' │ └─child: RenderConstrainedBox#00000 relayoutBoundary=up3\n'
+        ' │ └─child: RenderConstrainedBox#00000 relayoutBoundary=up4\n'
         ' │   │ parentData: <none> (can use size)\n'
         ' │   │ constraints: BoxConstraints(w=800.0, 0.0<=h<=Infinity)\n'
         ' │   │ size: Size(800.0, 100.0)\n'
@@ -367,7 +385,7 @@ void main() {
         ' │         size: Size(800.0, 100.0)\n'
         ' │         additionalConstraints: BoxConstraints(biggest)\n'
         ' │\n'
-        ' ├─child with index 1: RenderRepaintBoundary#00000 relayoutBoundary=up2\n'
+        ' ├─child with index 1: RenderRepaintBoundary#00000 relayoutBoundary=up3\n'
         ' │ │ needs compositing\n'
         ' │ │ parentData: index=1; layoutOffset=100.0 (can use size)\n'
         ' │ │ constraints: BoxConstraints(w=800.0, 0.0<=h<=Infinity)\n'
@@ -377,7 +395,7 @@ void main() {
         ' │ │ diagnosis: insufficient data to draw conclusion (less than five\n'
         ' │ │   repaints)\n'
         ' │ │\n'
-        ' │ └─child: RenderConstrainedBox#00000 relayoutBoundary=up3\n'
+        ' │ └─child: RenderConstrainedBox#00000 relayoutBoundary=up4\n'
         ' │   │ parentData: <none> (can use size)\n'
         ' │   │ constraints: BoxConstraints(w=800.0, 0.0<=h<=Infinity)\n'
         ' │   │ size: Size(800.0, 100.0)\n'
@@ -396,7 +414,7 @@ void main() {
         ' │         size: Size(800.0, 100.0)\n'
         ' │         additionalConstraints: BoxConstraints(biggest)\n'
         ' │\n'
-        ' └─child with index 2: RenderRepaintBoundary#00000 relayoutBoundary=up2\n'
+        ' └─child with index 2: RenderRepaintBoundary#00000 relayoutBoundary=up3\n'
         '   │ needs compositing\n'
         '   │ parentData: index=2; layoutOffset=200.0 (can use size)\n'
         '   │ constraints: BoxConstraints(w=800.0, 0.0<=h<=Infinity)\n'
@@ -406,7 +424,7 @@ void main() {
         '   │ diagnosis: insufficient data to draw conclusion (less than five\n'
         '   │   repaints)\n'
         '   │\n'
-        '   └─child: RenderConstrainedBox#00000 relayoutBoundary=up3\n'
+        '   └─child: RenderConstrainedBox#00000 relayoutBoundary=up4\n'
         '     │ parentData: <none> (can use size)\n'
         '     │ constraints: BoxConstraints(w=800.0, 0.0<=h<=Infinity)\n'
         '     │ size: Size(800.0, 100.0)\n'
@@ -434,28 +452,31 @@ void main() {
   });
 
   testWidgets('ListView should not paint hidden children', (WidgetTester tester) async {
-    const Text text = Text('test');
+    const text = Text('test');
+    final controller = ScrollController(initialScrollOffset: 300.0);
+    addTearDown(controller.dispose);
+
     await tester.pumpWidget(
-        Directionality(
-            textDirection: TextDirection.ltr,
-            child: Center(
-              child: SizedBox(
-                  height: 200.0,
-                  child: ListView(
-                    cacheExtent: 500.0,
-                    controller: ScrollController(initialScrollOffset: 300.0),
-                    children: const <Widget>[
-                      SizedBox(height: 140.0, child: text),
-                      SizedBox(height: 160.0, child: text),
-                      SizedBox(height: 90.0, child: text),
-                      SizedBox(height: 110.0, child: text),
-                      SizedBox(height: 80.0, child: text),
-                      SizedBox(height: 70.0, child: text),
-                    ],
-                  ),
-              ),
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Center(
+          child: SizedBox(
+            height: 200.0,
+            child: ListView(
+              cacheExtent: 500.0,
+              controller: controller,
+              children: const <Widget>[
+                SizedBox(height: 140.0, child: text),
+                SizedBox(height: 160.0, child: text),
+                SizedBox(height: 90.0, child: text),
+                SizedBox(height: 110.0, child: text),
+                SizedBox(height: 80.0, child: text),
+                SizedBox(height: 70.0, child: text),
+              ],
             ),
+          ),
         ),
+      ),
     );
 
     final RenderSliverList list = tester.renderObject(find.byType(SliverList));
@@ -463,25 +484,23 @@ void main() {
   });
 
   testWidgets('ListView should paint with offset', (WidgetTester tester) async {
+    final controller = ScrollController(initialScrollOffset: 120.0);
+    addTearDown(controller.dispose);
+
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
+      TestWidgetsApp(
+        home: Center(
+          child: SizedBox(
             height: 500.0,
             child: CustomScrollView(
-              controller: ScrollController(initialScrollOffset: 120.0),
+              controller: controller,
               slivers: <Widget>[
-                const SliverAppBar(
-                  expandedHeight: 250.0,
-                ),
+                const SliverToBoxAdapter(child: SizedBox(height: 250.0)),
                 SliverList(
                   delegate: ListView.builder(
                     itemExtent: 100.0,
                     itemCount: 100,
-                    itemBuilder: (_, __) => const SizedBox(
-                      height: 40.0,
-                      child: Text('hey'),
-                    ),
+                    itemBuilder: (_, _) => const SizedBox(height: 40.0, child: Text('hey')),
                   ).childrenDelegate,
                 ),
               ],
@@ -506,11 +525,8 @@ void main() {
             scrollDirection: Axis.horizontal,
             itemExtent: 200.0,
             itemCount: 10,
-            itemBuilder: (_, int i) => Container(
-              height: 200.0,
-              width: 200.0,
-              color: i.isEven ? Colors.black : Colors.red,
-            ),
+            itemBuilder: (_, int i) =>
+                Container(height: 200.0, width: 200.0, color: i.isEven ? debugBlack : debugRed),
           ),
         ),
       ),

@@ -22,11 +22,8 @@ class _NestedMouseRegion extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget current = child;
-    for (int i = 0; i < nests; i++) {
-      current = MouseRegion(
-        onEnter: (_) {},
-        child: child,
-      );
+    for (var i = 0; i < nests; i++) {
+      current = MouseRegion(onEnter: (_) {}, child: child);
     }
     return current;
   }
@@ -45,12 +42,12 @@ class BenchMouseRegionGridHover extends WidgetRecorder {
   late _Tester _tester;
 
   void handleDataPoint(Duration duration) {
-    profile!.addDataPoint('hitTestDuration', duration, reported: true);
+    profile?.addDataPoint('hitTestDuration', duration, reported: true);
   }
 
   // Use a non-trivial border to force Web to switch painter
   Border _getBorder(int columnIndex, int rowIndex) {
-    const BorderSide defaultBorderSide = BorderSide();
+    const defaultBorderSide = BorderSide();
 
     return Border(
       left: columnIndex == 0 ? defaultBorderSide : BorderSide.none,
@@ -66,8 +63,8 @@ class BenchMouseRegionGridHover extends WidgetRecorder {
   void frameDidDraw() {
     if (!started) {
       started = true;
-      SchedulerBinding.instance!.addPostFrameCallback((Duration timeStamp) async {
-        _tester.start();
+      SchedulerBinding.instance.addPostFrameCallback((Duration timeStamp) async {
+        unawaited(_tester.start());
         registerDidStop(_tester.stop);
       });
     }
@@ -76,16 +73,15 @@ class BenchMouseRegionGridHover extends WidgetRecorder {
 
   @override
   Widget createWidget() {
-    const int rowsCount = 60;
-    const int columnsCount = 20;
+    const rowsCount = 60;
+    const columnsCount = 20;
     const double containerSize = 20;
     return Directionality(
       textDirection: TextDirection.ltr,
       child: Align(
         alignment: Alignment.topLeft,
-        child: SizedBox(
-          width: 400,
-          height: 400,
+        child: SizedBox.square(
+          dimension: 400,
           child: ListView.builder(
             itemCount: rowsCount,
             cacheExtent: rowsCount * containerSize,
@@ -116,16 +112,14 @@ class BenchMouseRegionGridHover extends WidgetRecorder {
   }
 }
 
-class _UntilNextFrame {
-  _UntilNextFrame._();
-
+abstract final class _UntilNextFrame {
   static Completer<void>? _completer;
 
   static Future<void> wait() {
     if (_UntilNextFrame._completer == null) {
       _UntilNextFrame._completer = Completer<void>();
-      SchedulerBinding.instance!.addPostFrameCallback((_) {
-        _UntilNextFrame._completer!.complete(null);
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _UntilNextFrame._completer!.complete();
         _UntilNextFrame._completer = null;
       });
     }
@@ -141,26 +135,28 @@ class _Tester {
   static const Duration hoverDuration = Duration(milliseconds: 20);
 
   bool _stopped = false;
+  final Completer<void> _finished = Completer<void>();
+  Future<void> get finished => _finished.future;
 
   TestGesture get gesture {
     return _gesture ??= TestGesture(
       dispatcher: (PointerEvent event) async {
-        RendererBinding.instance!.handlePointerEvent(event);
+        RendererBinding.instance.handlePointerEvent(event);
       },
       kind: PointerDeviceKind.mouse,
     );
   }
+
   TestGesture? _gesture;
 
   Duration currentTime = Duration.zero;
 
   Future<void> _hoverTo(Offset location, Duration duration) async {
     currentTime += duration;
-    final Stopwatch stopwatch = Stopwatch()..start();
+    final stopwatch = Stopwatch()..start();
     await gesture.moveTo(location, timeStamp: currentTime);
     stopwatch.stop();
-    if (onDataPoint != null)
-      onDataPoint(stopwatch.elapsed);
+    onDataPoint(stopwatch.elapsed);
     await _UntilNextFrame.wait();
   }
 
@@ -172,6 +168,7 @@ class _Tester {
       await _hoverTo(const Offset(370, 390), hoverDuration);
       await _hoverTo(const Offset(390, 30), hoverDuration);
     }
+    _finished.complete();
   }
 
   void stop() {

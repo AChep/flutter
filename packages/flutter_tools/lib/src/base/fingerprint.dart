@@ -19,13 +19,9 @@ class Fingerprinter {
   Fingerprinter({
     required this.fingerprintPath,
     required Iterable<String> paths,
-    required FileSystem fileSystem,
-    required Logger logger,
-  }) : _paths = paths.toList(),
-       assert(fingerprintPath != null),
-       assert(paths != null && paths.every((String path) => path != null)),
-       _logger = logger,
-       _fileSystem = fileSystem;
+    required this._fileSystem,
+    required this._logger,
+  }) : _paths = paths.toList();
 
   final String fingerprintPath;
   final List<String> _paths;
@@ -49,7 +45,7 @@ class Fingerprinter {
         return false;
       }
 
-      final Fingerprint oldFingerprint = Fingerprint.fromJson(fingerprintFile.readAsStringSync());
+      final oldFingerprint = Fingerprint.fromJson(fingerprintFile.readAsStringSync());
       final Fingerprint newFingerprint = buildFingerprint();
       return oldFingerprint == newFingerprint;
     } on Exception catch (e) {
@@ -62,7 +58,9 @@ class Fingerprinter {
   void writeFingerprint() {
     try {
       final Fingerprint fingerprint = buildFingerprint();
-      _fileSystem.file(fingerprintPath).writeAsStringSync(fingerprint.toJson());
+      final File fingerprintFile = _fileSystem.file(fingerprintPath);
+      fingerprintFile.createSync(recursive: true);
+      fingerprintFile.writeAsStringSync(fingerprint.toJson());
     } on Exception catch (e) {
       // Log exception and continue, fingerprinting is only a performance improvement.
       _logger.printTrace('Fingerprint write error: $e');
@@ -78,9 +76,8 @@ class Fingerprinter {
 /// See [Fingerprinter].
 @immutable
 class Fingerprint {
-  const Fingerprint._({
-    Map<String, String>? checksums,
-  })  : _checksums = checksums ?? const <String, String>{};
+  const Fingerprint._({Map<String, String>? checksums})
+    : _checksums = checksums ?? const <String, String>{};
 
   factory Fingerprint.fromBuildInputs(Iterable<String> inputPaths, FileSystem fileSystem) {
     final Iterable<File> files = inputPaths.map<File>(fileSystem.file);
@@ -90,8 +87,7 @@ class Fingerprint {
     }
     return Fingerprint._(
       checksums: <String, String>{
-        for (final File file in files)
-          file.path: md5.convert(file.readAsBytesSync()).toString(),
+        for (final File file in files) file.path: md5.convert(file.readAsBytesSync()).toString(),
       },
     );
   }
@@ -105,30 +101,27 @@ class Fingerprint {
     final Map<String, String>? files = content == null
         ? null
         : castStringKeyedMap(content['files'])?.cast<String, String>();
-    return Fingerprint._(
-      checksums: files ?? <String, String>{},
-    );
+    return Fingerprint._(checksums: files ?? <String, String>{});
   }
 
   final Map<String, String> _checksums;
 
-  String toJson() => json.encode(<String, dynamic>{
-    'files': _checksums,
-  });
+  String toJson() => json.encode(<String, dynamic>{'files': _checksums});
 
   @override
-  bool operator==(Object other) {
-    return other is Fingerprint
-        && _equalMaps(other._checksums, _checksums);
+  bool operator ==(Object other) {
+    return other is Fingerprint && _equalMaps(other._checksums, _checksums);
   }
 
   bool _equalMaps(Map<String, String> a, Map<String, String> b) {
-    return a.length == b.length
-        && a.keys.every((String key) => a[key] == b[key]);
+    return a.length == b.length && a.keys.every((String key) => a[key] == b[key]);
   }
 
   @override
-  int get hashCode => Object.hash(Object.hashAllUnordered(_checksums.keys), Object.hashAllUnordered(_checksums.values));
+  int get hashCode => Object.hash(
+    Object.hashAllUnordered(_checksums.keys),
+    Object.hashAllUnordered(_checksums.values),
+  );
 
   @override
   String toString() => '{checksums: $_checksums}';

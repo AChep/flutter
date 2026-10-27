@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter/rendering.dart';
+
 import 'framework.dart';
 
 /// A rectangle upon which a backend texture is mapped.
@@ -28,20 +29,19 @@ import 'framework.dart';
 ///
 /// See also:
 ///
-///  * <https://api.flutter.dev/javadoc/io/flutter/view/TextureRegistry.html>
+///  * [TextureRegistry](/javadoc/io/flutter/view/TextureRegistry.html)
 ///    for how to create and manage backend textures on Android.
-///  * <https://api.flutter.dev/objcdoc/Protocols/FlutterTextureRegistry.html>
+///  * [TextureRegistry Protocol](/ios-embedder/protocol_flutter_texture_registry-p.html)
 ///    for how to create and manage backend textures on iOS.
 class Texture extends LeafRenderObjectWidget {
   /// Creates a widget backed by the texture identified by [textureId], and use
   /// [filterQuality] to set texture's [FilterQuality].
   const Texture({
-    Key? key,
+    super.key,
     required this.textureId,
     this.freeze = false,
     this.filterQuality = FilterQuality.low,
-  }) : assert(textureId != null),
-       super(key: key);
+  });
 
   /// The identity of the backend texture.
   final int textureId;
@@ -60,7 +60,8 @@ class Texture extends LeafRenderObjectWidget {
   final FilterQuality filterQuality;
 
   @override
-  TextureBox createRenderObject(BuildContext context) => TextureBox(textureId: textureId, freeze: freeze, filterQuality: filterQuality);
+  TextureBox createRenderObject(BuildContext context) =>
+      TextureBox(textureId: textureId, freeze: freeze, filterQuality: filterQuality);
 
   @override
   void updateRenderObject(BuildContext context, TextureBox renderObject) {

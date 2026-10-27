@@ -5,16 +5,14 @@
 import 'package:flutter/material.dart';
 
 class AnimatedImagePage extends StatelessWidget {
-  const AnimatedImagePage({Key? key, this.onFrame}) : super(key: key);
+  const AnimatedImagePage({super.key, this.onFrame});
 
   final ValueChanged<int>? onFrame;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Animated Image'),
-      ),
+      appBar: AppBar(title: const Text('Animated Image')),
       body: Image.asset(
         'animated_images/animated_flutter_lgtm.gif',
         package: 'flutter_gallery_assets',

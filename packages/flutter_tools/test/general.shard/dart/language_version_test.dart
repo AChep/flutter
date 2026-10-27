@@ -2,12 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// TODO(gspencergoog): Remove this tag once this test's state leaks/test
-// dependencies have been fixed.
-// https://github.com/flutter/flutter/issues/85160
-// Fails with "flutter test --test-randomize-ordering-seed=456"
-@Tags(<String>['no-shuffle'])
-
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/dart/language_version.dart';
@@ -15,9 +9,9 @@ import 'package:package_config/package_config.dart';
 
 import '../../src/common.dart';
 
-const String flutterRoot = '';
-const String testVersionString = '2.13';
-final LanguageVersion testCurrentLanguageVersion = LanguageVersion(2, 13);
+const flutterRoot = '';
+const testVersionString = '2.13';
+final testCurrentLanguageVersion = LanguageVersion(2, 13);
 
 void setUpLanguageVersion(FileSystem fileSystem, [String version = testVersionString]) {
   fileSystem.file(fileSystem.path.join('bin', 'cache', 'dart-sdk', 'version'))
@@ -49,7 +43,7 @@ void main() {
 // @dart=2.9
 ''');
 
-    expect(determineLanguageVersion(file, null, flutterRoot),  LanguageVersion(2, 9));
+    expect(determineLanguageVersion(file, null, flutterRoot), LanguageVersion(2, 9));
   });
 
   testWithoutContext('detects language version in comment with more numbers', () {
@@ -62,7 +56,7 @@ void main() {
 // @dart=2.12
 ''');
 
-    expect(determineLanguageVersion(file, null, flutterRoot), nullSafeVersion);
+    expect(determineLanguageVersion(file, null, flutterRoot), LanguageVersion(2, 12));
   });
 
   testWithoutContext('does not detect invalid language version', () {
@@ -251,6 +245,7 @@ part of 'foo.dart';
 
   testWithoutContext('does not detect language version after library declaration', () {
     final FileSystem fileSystem = MemoryFileSystem.test();
+    setUpLanguageVersion(fileSystem);
     final File file = fileSystem.file('example.dart')
       ..writeAsStringSync('''
 // Some license
@@ -269,7 +264,7 @@ library funstuff;
       ..writeAsStringSync('''
 // Some license
 ''');
-    final Package package = Package(
+    final package = Package(
       'foo',
       Uri.parse('file://foo/'),
       languageVersion: LanguageVersion(2, 7),
@@ -280,34 +275,34 @@ library funstuff;
 
   testWithoutContext('defaults to current version if package lookup returns null', () {
     final FileSystem fileSystem = MemoryFileSystem.test();
+    setUpLanguageVersion(fileSystem);
     final File file = fileSystem.file('example.dart')
       ..writeAsStringSync('''
 // Some license
 ''');
-    final Package package = Package(
-      'foo',
-      Uri.parse('file://foo/'),
-      languageVersion: null,
-    );
+    final package = Package('foo', Uri.parse('file://foo/'));
 
     expect(determineLanguageVersion(file, package, flutterRoot), testCurrentLanguageVersion);
   });
 
-  testWithoutContext('Returns null safe error if reading the file throws a FileSystemException', () {
-    final FileExceptionHandler handler = FileExceptionHandler();
-    final FileSystem fileSystem = MemoryFileSystem.test(opHandle: handler.opHandle);
-    setUpLanguageVersion(fileSystem);
-    final File errorFile = fileSystem.file('foo');
-    handler.addError(errorFile, FileSystemOp.read, const FileSystemException());
+  testWithoutContext(
+    'Returns null safe error if reading the file throws a FileSystemException',
+    () {
+      final handler = FileExceptionHandler();
+      final FileSystem fileSystem = MemoryFileSystem.test(opHandle: handler.opHandle);
+      setUpLanguageVersion(fileSystem);
+      final File errorFile = fileSystem.file('foo');
+      handler.addError(errorFile, FileSystemOp.read, const FileSystemException());
 
-    final Package package = Package(
-      'foo',
-      Uri.parse('file://foo/'),
-      languageVersion: LanguageVersion(2, 7),
-    );
+      final package = Package(
+        'foo',
+        Uri.parse('file://foo/'),
+        languageVersion: LanguageVersion(2, 7),
+      );
 
-    expect(determineLanguageVersion(errorFile, package, flutterRoot), testCurrentLanguageVersion);
-  });
+      expect(determineLanguageVersion(errorFile, package, flutterRoot), testCurrentLanguageVersion);
+    },
+  );
 
   testWithoutContext('Can parse Dart language version with pre/post suffix', () {
     final FileSystem fileSystem = MemoryFileSystem.test();

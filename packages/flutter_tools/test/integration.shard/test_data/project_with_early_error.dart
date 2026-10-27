@@ -2,17 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'project.dart';
 
 class ProjectWithEarlyError extends Project {
-
   @override
-  final String pubspec = '''
+  final pubspec = '''
   name: test
   environment:
-    sdk: ">=2.12.0-0 <3.0.0"
+    sdk: ^3.7.0-0
 
   dependencies:
     flutter:
@@ -20,14 +17,14 @@ class ProjectWithEarlyError extends Project {
   ''';
 
   @override
-  final String main = r'''
+  final main = r'''
   import 'dart:async';
 
   import 'package:flutter/material.dart';
 
   Future<void> main() async {
     while (true) {
-      runApp(new MyApp());
+      runApp(MyApp());
       await Future.delayed(const Duration(milliseconds: 50));
     }
   }
@@ -39,5 +36,4 @@ class ProjectWithEarlyError extends Project {
     }
   }
   ''';
-
 }

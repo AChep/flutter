@@ -15,8 +15,8 @@ private interface can be accessed by the test.
 
 The tests are run like so:
 
-```shell
-pub run --enable-experiment=non-nullable test_private.dart
+```sh
+dart run bin/test_private.dart
 ```
 
 One limitation is that the copied private API needs to be separable enough to be

@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 // (CategoryView) on top of the backdrop.
 
 class Category {
-  const Category({ this.title, this.assets });
+  const Category({this.title, this.assets});
   final String? title;
   final List<String>? assets;
   @override
@@ -95,7 +95,7 @@ const List<Category> allCategories = <Category>[
 ];
 
 class CategoryView extends StatelessWidget {
-  const CategoryView({ Key? key, this.category }) : super(key: key);
+  const CategoryView({super.key, this.category});
 
   final Category? category;
 
@@ -104,11 +104,9 @@ class CategoryView extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     return Scrollbar(
       child: ListView(
+        primary: true,
         key: PageStorageKey<Category?>(category),
-        padding: const EdgeInsets.symmetric(
-          vertical: 16.0,
-          horizontal: 64.0,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 64.0),
         children: category!.assets!.map<Widget>((String asset) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,18 +117,11 @@ class CategoryView extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Column(
                     children: <Widget>[
-                      Image.asset(
-                        asset,
-                        package: 'flutter_gallery_assets',
-                        fit: BoxFit.contain,
-                      ),
+                      Image.asset(asset, package: 'flutter_gallery_assets', fit: BoxFit.contain),
                       Container(
                         padding: const EdgeInsets.only(bottom: 16.0),
                         alignment: AlignmentDirectional.center,
-                        child: Text(
-                          asset,
-                          style: theme.textTheme.caption,
-                        ),
+                        child: Text(asset, style: theme.textTheme.bodySmall),
                       ),
                     ],
                   ),
@@ -149,13 +140,13 @@ class CategoryView extends StatelessWidget {
 // BackdropDemo.
 class BackdropPanel extends StatelessWidget {
   const BackdropPanel({
-    Key? key,
+    super.key,
     this.onTap,
     this.onVerticalDragUpdate,
     this.onVerticalDragEnd,
     this.title,
     this.child,
-  }) : super(key: key);
+  });
 
   final VoidCallback? onTap;
   final GestureDragUpdateCallback? onVerticalDragUpdate;
@@ -185,11 +176,8 @@ class BackdropPanel extends StatelessWidget {
               padding: const EdgeInsetsDirectional.only(start: 16.0),
               alignment: AlignmentDirectional.centerStart,
               child: DefaultTextStyle(
-                style: theme.textTheme.subtitle1!,
-                child: Tooltip(
-                  message: 'Tap to dismiss',
-                  child: title,
-                ),
+                style: theme.textTheme.titleMedium!,
+                child: Tooltip(message: 'Tap to dismiss', child: title),
               ),
             ),
           ),
@@ -203,16 +191,13 @@ class BackdropPanel extends StatelessWidget {
 
 // Cross fades between 'Select a Category' and 'Asset Viewer'.
 class BackdropTitle extends AnimatedWidget {
-  const BackdropTitle({
-    Key? key,
-    required Animation<double> listenable,
-  }) : super(key: key, listenable: listenable);
+  const BackdropTitle({super.key, required Animation<double> super.listenable});
 
   @override
   Widget build(BuildContext context) {
-    final Animation<double> animation = listenable as Animation<double>;
+    final animation = listenable as Animation<double>;
     return DefaultTextStyle(
-      style: Theme.of(context).primaryTextTheme.headline6!,
+      style: Theme.of(context).primaryTextTheme.titleLarge!,
       softWrap: false,
       overflow: TextOverflow.ellipsis,
       child: Stack(
@@ -225,10 +210,7 @@ class BackdropTitle extends AnimatedWidget {
             child: const Text('Select a Category'),
           ),
           Opacity(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: const Interval(0.5, 1.0),
-            ).value,
+            opacity: CurvedAnimation(parent: animation, curve: const Interval(0.5, 1.0)).value,
             child: const Text('Asset Viewer'),
           ),
         ],
@@ -239,7 +221,7 @@ class BackdropTitle extends AnimatedWidget {
 
 // This widget is essentially the backdrop itself.
 class BackdropDemo extends StatefulWidget {
-  const BackdropDemo({Key? key}) : super(key: key);
+  const BackdropDemo({super.key});
 
   static const String routeName = '/material/backdrop';
 
@@ -275,17 +257,12 @@ class _BackdropDemoState extends State<BackdropDemo> with SingleTickerProviderSt
     });
   }
 
-  bool get _backdropPanelVisible {
-    final AnimationStatus status = _controller.status;
-    return status == AnimationStatus.completed || status == AnimationStatus.forward;
-  }
-
   void _toggleBackdropPanelVisibility() {
-    _controller.fling(velocity: _backdropPanelVisible ? -2.0 : 2.0);
+    _controller.fling(velocity: _controller.isForwardOrCompleted ? -2.0 : 2.0);
   }
 
   double get _backdropHeight {
-    final RenderBox renderBox = _backdropKey.currentContext!.findRenderObject()! as RenderBox;
+    final renderBox = _backdropKey.currentContext!.findRenderObject()! as RenderBox;
     return renderBox.size.height;
   }
 
@@ -293,23 +270,26 @@ class _BackdropDemoState extends State<BackdropDemo> with SingleTickerProviderSt
   // the user must either tap its heading or the backdrop's menu icon.
 
   void _handleDragUpdate(DragUpdateDetails details) {
-    if (_controller.isAnimating || _controller.status == AnimationStatus.completed)
+    if (!_controller.isDismissed) {
       return;
+    }
 
     _controller.value -= details.primaryDelta! / _backdropHeight;
   }
 
   void _handleDragEnd(DragEndDetails details) {
-    if (_controller.isAnimating || _controller.status == AnimationStatus.completed)
+    if (!_controller.isDismissed) {
       return;
+    }
 
     final double flingVelocity = details.velocity.pixelsPerSecond.dy / _backdropHeight;
-    if (flingVelocity < 0.0)
-      _controller.fling(velocity: math.max(2.0, -flingVelocity));
-    else if (flingVelocity > 0.0)
-      _controller.fling(velocity: math.min(-2.0, -flingVelocity));
-    else
-      _controller.fling(velocity: _controller.value < 0.5 ? -2.0 : 2.0);
+    _controller.fling(
+      velocity: switch (flingVelocity) {
+        < 0.0 => math.max(2.0, -flingVelocity),
+        > 0.0 => math.min(-2.0, -flingVelocity),
+        _ => _controller.value < 0.5 ? -2.0 : 2.0,
+      },
+    );
   }
 
   // Stacks a BackdropPanel, which displays the selected category, on top
@@ -318,7 +298,7 @@ class _BackdropDemoState extends State<BackdropDemo> with SingleTickerProviderSt
   // we need to know how big the BackdropPanel will be to set up its
   // animation.
   Widget _buildStack(BuildContext context, BoxConstraints constraints) {
-    const double panelTitleHeight = 48.0;
+    const panelTitleHeight = 48.0;
     final Size panelSize = constraints.biggest;
     final double panelTop = panelSize.height - panelTitleHeight;
 
@@ -336,14 +316,10 @@ class _BackdropDemoState extends State<BackdropDemo> with SingleTickerProviderSt
 
     final ThemeData theme = Theme.of(context);
     final List<Widget> backdropItems = allCategories.map<Widget>((Category category) {
-      final bool selected = category == _category;
+      final selected = category == _category;
       return Material(
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(4.0)),
-        ),
-        color: selected
-          ? Colors.white.withOpacity(0.25)
-          : Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(4.0))),
+        color: selected ? Colors.white.withOpacity(0.25) : Colors.transparent,
         child: ListTile(
           title: Text(category.title!),
           selected: selected,
@@ -354,15 +330,15 @@ class _BackdropDemoState extends State<BackdropDemo> with SingleTickerProviderSt
       );
     }).toList();
 
-    return Container(
+    return ColoredBox(
       key: _backdropKey,
       color: theme.primaryColor,
       child: Stack(
         children: <Widget>[
           ListTileTheme(
             iconColor: theme.primaryIconTheme.color,
-            textColor: theme.primaryTextTheme.headline6!.color!.withOpacity(0.6),
-            selectedColor: theme.primaryTextTheme.headline6!.color,
+            textColor: theme.primaryTextTheme.titleLarge!.color!.withOpacity(0.6),
+            selectedColor: theme.primaryTextTheme.titleLarge!.color,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Column(
@@ -391,9 +367,7 @@ class _BackdropDemoState extends State<BackdropDemo> with SingleTickerProviderSt
     return Scaffold(
       appBar: AppBar(
         elevation: 0.0,
-        title: BackdropTitle(
-          listenable: _controller.view,
-        ),
+        title: BackdropTitle(listenable: _controller.view),
         actions: <Widget>[
           IconButton(
             onPressed: _toggleBackdropPanelVisibility,
@@ -405,9 +379,7 @@ class _BackdropDemoState extends State<BackdropDemo> with SingleTickerProviderSt
           ),
         ],
       ),
-      body: LayoutBuilder(
-        builder: _buildStack,
-      ),
+      body: LayoutBuilder(builder: _buildStack),
     );
   }
 }

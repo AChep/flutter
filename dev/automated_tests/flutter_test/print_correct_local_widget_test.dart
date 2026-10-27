@@ -10,26 +10,25 @@ void main() {
     // This should fail with user created widget = Row.
     await tester.pumpWidget(
       MaterialApp(
+        theme: ThemeData(useMaterial3: false),
         home: Scaffold(
-          appBar: AppBar(
-            title: const Text('RenderFlex OverFlow'),
-          ),
-          body: SizedBox(
+          appBar: AppBar(title: const Text('RenderFlex OverFlow')),
+          body: const SizedBox(
             width: 400.0,
             child: Row(
               children: <Widget>[
-                const Icon(Icons.message),
+                Icon(Icons.message),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const <Widget>[
+                  children: <Widget>[
                     Text('Title'),
                     Text(
                       'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed '
                       'do eiusmod tempor incididunt ut labore et dolore magna '
                       'aliqua. Ut enim ad minim veniam, quis nostrud '
                       'exercitation ullamco laboris nisi ut aliquip ex ea '
-                      'commodo consequat.'
+                      'commodo consequat.',
                     ),
                   ],
                 ),
@@ -37,7 +36,7 @@ void main() {
             ),
           ),
         ),
-      )
+      ),
     );
   });
 }

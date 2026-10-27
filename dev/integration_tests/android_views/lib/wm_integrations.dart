@@ -10,28 +10,23 @@ import 'package:flutter/services.dart';
 import 'page.dart';
 
 class WindowManagerIntegrationsPage extends PageWidget {
-  const WindowManagerIntegrationsPage({Key? key})
-      : super('Window Manager Integrations Tests', const ValueKey<String>('WmIntegrationsListTile'), key: key);
+  const WindowManagerIntegrationsPage({super.key})
+    : super('Window Manager Integrations Tests', const ValueKey<String>('WmIntegrationsListTile'));
 
   @override
   Widget build(BuildContext context) => const WindowManagerBody();
 }
 
 class WindowManagerBody extends StatefulWidget {
-  const WindowManagerBody({Key? key}) : super(key: key);
+  const WindowManagerBody({super.key});
 
   @override
   State<WindowManagerBody> createState() => WindowManagerBodyState();
 }
 
-enum _LastTestStatus {
-  pending,
-  success,
-  error
-}
+enum _LastTestStatus { pending, success, error }
 
 class WindowManagerBodyState extends State<WindowManagerBody> {
-
   MethodChannel? viewChannel;
   _LastTestStatus _lastTestStatus = _LastTestStatus.pending;
   String? lastError;
@@ -41,9 +36,7 @@ class WindowManagerBodyState extends State<WindowManagerBody> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Window Manager Integrations'),
-      ),
+      appBar: AppBar(title: const Text('Window Manager Integrations')),
       body: Column(
         children: <Widget>[
           SizedBox(
@@ -54,7 +47,7 @@ class WindowManagerBodyState extends State<WindowManagerBody> {
             ),
           ),
           if (_lastTestStatus != _LastTestStatus.pending) _statusWidget(),
-          if (viewChannel != null) ... <Widget>[
+          if (viewChannel != null) ...<Widget>[
             ElevatedButton(
               key: const ValueKey<String>('ShowAlertDialog'),
               onPressed: onShowAlertDialogPressed,
@@ -74,8 +67,8 @@ class WindowManagerBodyState extends State<WindowManagerBody> {
                 ),
                 if (windowClickCount > 0)
                   Text(
-                      'Click count: $windowClickCount',
-                      key: const ValueKey<String>('WindowClickCount'),
+                    'Click count: $windowClickCount',
+                    key: const ValueKey<String>('WindowClickCount'),
                   ),
               ],
             ),
@@ -88,14 +81,12 @@ class WindowManagerBodyState extends State<WindowManagerBody> {
   Widget _statusWidget() {
     assert(_lastTestStatus != _LastTestStatus.pending);
     final String? message = _lastTestStatus == _LastTestStatus.success ? 'Success' : lastError;
-    return Container(
+    return ColoredBox(
       color: _lastTestStatus == _LastTestStatus.success ? Colors.green : Colors.red,
       child: Text(
         message!,
         key: const ValueKey<String>('Status'),
-        style: TextStyle(
-          color: _lastTestStatus == _LastTestStatus.error ? Colors.yellow : null,
-        ),
+        style: TextStyle(color: _lastTestStatus == _LastTestStatus.error ? Colors.yellow : null),
       ),
     );
   }
@@ -111,7 +102,7 @@ class WindowManagerBodyState extends State<WindowManagerBody> {
       setState(() {
         _lastTestStatus = _LastTestStatus.success;
       });
-    } catch(e) {
+    } catch (e) {
       setState(() {
         _lastTestStatus = _LastTestStatus.error;
         lastError = '$e';
@@ -125,7 +116,7 @@ class WindowManagerBodyState extends State<WindowManagerBody> {
       setState(() {
         windowClickCount++;
       });
-    } catch(e) {
+    } catch (e) {
       setState(() {
         _lastTestStatus = _LastTestStatus.error;
         lastError = '$e';
@@ -152,5 +143,4 @@ class WindowManagerBodyState extends State<WindowManagerBody> {
       viewChannel = MethodChannel('simple_view/$id');
     });
   }
-
 }

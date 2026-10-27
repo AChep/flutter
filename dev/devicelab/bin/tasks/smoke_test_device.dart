@@ -11,16 +11,13 @@ Future<void> main() async {
   deviceOperatingSystem = DeviceOperatingSystem.fake;
   await task(() async {
     final Device device = await devices.workingDevice;
-    if (device.deviceId == 'FAKE_SUCCESS')
-      return TaskResult.success(<String, dynamic>{
-        'metric1': 42,
-        'metric2': 123,
-        'not_a_metric': 'something',
-      }, benchmarkScoreKeys: <String>[
-        'metric1',
-        'metric2',
-      ]);
-    else
+    if (device.deviceId == 'FAKE_SUCCESS') {
+      return TaskResult.success(
+        <String, dynamic>{'metric1': 42, 'metric2': 123, 'not_a_metric': 'something'},
+        benchmarkScoreKeys: <String>['metric1', 'metric2'],
+      );
+    } else {
       return TaskResult.failure('Failed');
+    }
   });
 }

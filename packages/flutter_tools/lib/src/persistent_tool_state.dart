@@ -18,19 +18,10 @@ abstract class PersistentToolState {
     required FileSystem fileSystem,
     required Logger logger,
     required Platform platform,
-  }) => _DefaultPersistentToolState(
-    fileSystem: fileSystem,
-    logger: logger,
-    platform: platform,
-  );
+  }) = _DefaultPersistentToolState;
 
-  factory PersistentToolState.test({
-    required Directory directory,
-    required Logger logger,
-  }) => _DefaultPersistentToolState.test(
-    directory: directory,
-    logger: logger,
-  );
+  factory PersistentToolState.test({required Directory directory, required Logger logger}) =
+      _DefaultPersistentToolState.test;
 
   static PersistentToolState? get instance => context.get<PersistentToolState>();
 
@@ -38,7 +29,7 @@ abstract class PersistentToolState {
   ///
   /// May give null if the value has not been set.
   bool? get shouldRedisplayWelcomeMessage;
-  set redisplayWelcomeMessage(bool value); // Enforced nonnull setter.
+  void setShouldRedisplayWelcomeMessage(bool value); // Enforced nonnull setter.
 
   /// Returns the last active version for a given [channel].
   ///
@@ -50,15 +41,13 @@ abstract class PersistentToolState {
 
   /// Return the hash of the last active license terms.
   String? get lastActiveLicenseTermsHash;
-  set lastActiveLicenseTerms(String value); // Enforced nonnull setter.
+  void setLastActiveLicenseTermsHash(String value); // Enforced nonnull setter.
 
-  /// Whether this client was already determined to be or not be a bot.
-  bool? get isRunningOnBot;
-  set runningOnBot(bool value); // Enforced nonnull setter.
-
-  /// The last time the DevTools package was activated from pub.
-  DateTime? get lastDevToolsActivationTime;
-  set lastDevToolsActivation(DateTime value); // Enforced nonnull setter.
+  /// Whether the Intel Mac warning message should be displayed.
+  ///
+  /// This is typically set to false after the message has been shown once.
+  bool get shouldShowIntelMacWarning;
+  set shouldShowIntelMacWarning(bool value);
 }
 
 class _DefaultPersistentToolState implements PersistentToolState {
@@ -66,34 +55,22 @@ class _DefaultPersistentToolState implements PersistentToolState {
     required FileSystem fileSystem,
     required Logger logger,
     required Platform platform,
-  }) : _config = Config(
-      _kFileName,
-      fileSystem: fileSystem,
-      logger: logger,
-      platform: platform,
-    );
+  }) : _config = Config(_kFileName, fileSystem: fileSystem, logger: logger, platform: platform);
 
   @visibleForTesting
-  _DefaultPersistentToolState.test({
-    required Directory directory,
-    required Logger logger,
-  }) : _config = Config.test(
-      name: _kFileName,
-      directory: directory,
-      logger: logger,
-    );
+  _DefaultPersistentToolState.test({required Directory directory, required Logger logger})
+    : _config = Config.test(name: _kFileName, directory: directory, logger: logger);
 
-  static const String _kFileName = 'tool_state';
-  static const String _kRedisplayWelcomeMessage = 'redisplay-welcome-message';
-  static const Map<Channel, String> _lastActiveVersionKeys = <Channel,String>{
+  static const _kFileName = 'tool_state';
+  static const _kRedisplayWelcomeMessage = 'redisplay-welcome-message';
+  static const _lastActiveVersionKeys = <Channel, String>{
     Channel.master: 'last-active-master-version',
-    Channel.dev: 'last-active-dev-version',
+    Channel.main: 'last-active-main-version',
     Channel.beta: 'last-active-beta-version',
-    Channel.stable: 'last-active-stable-version'
+    Channel.stable: 'last-active-stable-version',
   };
-  static const String _kBotKey = 'is-bot';
-  static const String _kLastDevToolsActivationTimeKey = 'last-devtools-activation-time';
-  static const String _kLicenseHash = 'license-hash';
+  static const _kLicenseHash = 'license-hash';
+  static const _kHasShownIntelMacWarningKey = 'displayed-intel-warning-message';
 
   final Config _config;
 
@@ -103,7 +80,7 @@ class _DefaultPersistentToolState implements PersistentToolState {
   }
 
   @override
-  set redisplayWelcomeMessage(bool value) {
+  void setShouldRedisplayWelcomeMessage(bool value) {
     _config.setValue(_kRedisplayWelcomeMessage, value);
   }
 
@@ -125,7 +102,7 @@ class _DefaultPersistentToolState implements PersistentToolState {
   String? get lastActiveLicenseTermsHash => _config.getValue(_kLicenseHash) as String?;
 
   @override
-  set lastActiveLicenseTerms(String value) {
+  void setLastActiveLicenseTermsHash(String value) {
     _config.setValue(_kLicenseHash, value);
   }
 
@@ -134,20 +111,14 @@ class _DefaultPersistentToolState implements PersistentToolState {
   }
 
   @override
-  bool? get isRunningOnBot => _config.getValue(_kBotKey) as bool?;
+  bool get shouldShowIntelMacWarning => _config.getValue(_kHasShownIntelMacWarningKey) == null;
 
   @override
-  set runningOnBot(bool value) {
-    _config.setValue(_kBotKey, value);
+  set shouldShowIntelMacWarning(bool value) {
+    if (value) {
+      _config.removeValue(_kHasShownIntelMacWarningKey);
+    } else {
+      _config.setValue(_kHasShownIntelMacWarningKey, true);
+    }
   }
-
-  @override
-  DateTime? get lastDevToolsActivationTime {
-    final String? value = _config.getValue(_kLastDevToolsActivationTimeKey) as String?;
-    return value != null ? DateTime.parse(value) : null;
-  }
-
-  @override
-  set lastDevToolsActivation(DateTime time) =>
-      _config.setValue(_kLastDevToolsActivationTimeKey, time.toString());
 }

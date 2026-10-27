@@ -10,11 +10,7 @@ import 'package:flutter_devicelab/framework/task_result.dart';
 import '../common.dart';
 
 void main() {
-  final Map<String, String> isolateParams = <String, String>{
-    'runFlutterConfig': 'false',
-    'runProcessCleanup': 'false',
-    'timeoutInMinutes': '1',
-  };
+  final isolateParams = <String, String>{'runFlutterConfig': 'false', 'timeoutInMinutes': '1'};
 
   test('runs build and test when no args are passed', () async {
     final TaskResult result = await runTask(
@@ -46,7 +42,7 @@ void main() {
   });
 
   test('sets environment', () async {
-    final StringBuffer capturedPrintLines = StringBuffer();
+    final capturedPrintLines = StringBuffer();
     await runZoned<Future<void>>(
       () async {
         await runTask(
@@ -63,10 +59,16 @@ void main() {
         },
       ),
     );
-    final String capturedPrint = capturedPrintLines.toString();
-    expect(capturedPrint,
-        contains('with environment {FLUTTER_DEVICELAB_DEVICEID: FAKE_SUCCESS, BOT: true, LANG: en_US.UTF-8}'));
-    expect(capturedPrint, contains('exit code: 0'));
+    final capturedPrint = capturedPrintLines.toString();
+    expect(
+      capturedPrint,
+      allOf(
+        contains('with environment {'),
+        contains('FLUTTER_DEVICELAB_DEVICEID: FAKE_SUCCESS'),
+        contains('BOT: true'),
+      ),
+    );
+    expect(capturedPrint, contains('Process terminated with exit code 0.'));
   });
 
   test('throws exception when build and test arg are given', () async {
@@ -76,16 +78,19 @@ void main() {
       deviceId: 'FAKE_SUCCESS',
       isolateParams: isolateParams,
     );
-    expect(result.message, 'Task failed: Exception: Both build and test should not be passed. Pass only one.');
+    expect(
+      result.message,
+      'Task failed: Exception: Both build and test should not be passed. Pass only one.',
+    );
   });
 
-  test('throws exception when build and application binary arg are given', () async {
+  test('copies artifacts when build and application binary arg are given', () async {
     final TaskResult result = await runTask(
       'smoke_test_build_test',
-      taskArgs: <String>['--build', '--application-binary-path=test.apk'],
+      taskArgs: <String>['--build', '--application-binary-path=test'],
       deviceId: 'FAKE_SUCCESS',
       isolateParams: isolateParams,
     );
-    expect(result.message, 'Task failed: Exception: Application binary path is only used for tests');
+    expect(result.message, 'No tests run');
   });
 }

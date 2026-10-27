@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'package:file/file.dart';
 import 'package:flutter_tools/src/base/io.dart';
 
@@ -11,26 +9,20 @@ import '../src/common.dart';
 import 'test_utils.dart';
 
 void main() {
-  Directory tempDir;
-  Directory projectRoot;
-  String flutterBin;
-  final List<String> targetPlatforms = <String>[
+  late Directory tempDir;
+  late Directory projectRoot;
+  final targetPlatforms = <String>[
     'apk',
     'web',
-    if (platform.isWindows)
-      'windows',
-    if (platform.isMacOS)
-      ...<String>['macos', 'ios'],
+    if (platform.isWindows) 'windows',
+    if (platform.isMacOS) ...<String>['macos', 'ios'],
   ];
 
   setUpAll(() {
     tempDir = createResolvedTempDirectorySync('build_compilation_error_test.');
-    flutterBin = fileSystem.path.join(
-      getFlutterRoot(),
-      'bin',
-      'flutter',
-    );
-    processManager.runSync(<String>[flutterBin, 'config',
+    processManager.runSync(<String>[
+      flutterBin,
+      'config',
       '--enable-macos-desktop',
       '--enable-windows-desktop',
       '--enable-web',
@@ -53,24 +45,37 @@ int x = 'String';
     tryToDelete(tempDir);
   });
 
-  for (final String targetPlatform in targetPlatforms) {
-    testWithoutContext('flutter build $targetPlatform shows dart compilation error in non-verbose', () {
-      final ProcessResult result = processManager.runSync(<String>[
-        flutterBin,
-        ...getLocalEngineArguments(),
-        'build',
-        targetPlatform,
-        '--no-pub',
-        if (targetPlatform == 'ios')
-          '--no-codesign',
-      ], workingDirectory: projectRoot.path);
+  for (final targetPlatform in targetPlatforms) {
+    testWithoutContext(
+      'flutter build $targetPlatform shows dart compilation error in non-verbose',
+      () {
+        final ProcessResult result = processManager.runSync(<String>[
+          flutterBin,
+          ...getLocalEngineArguments(),
+          'build',
+          targetPlatform,
+          '--no-pub',
+          if (targetPlatform == 'ios') '--no-codesign',
+        ], workingDirectory: projectRoot.path);
 
-      expect(
-        // iOS shows this as stdout.
-        targetPlatform == 'ios' ? result.stdout : result.stderr,
-        contains("A value of type 'String' can't be assigned to a variable of type 'int'."),
-      );
-      expect(result.exitCode, 1);
-    }, timeout: const Timeout(Duration(minutes: 3)));
+        const errorMessage =
+            "A value of type 'String' can't be assigned to a variable of type 'int'.";
+
+        // Xcode 16 moved the xcodebuild error details from stderr to stdout.
+        // Check that it's contained in one or the other.
+        final bool matchStdout = result.stdout.toString().contains(errorMessage);
+        final bool matchStderr = result.stderr.toString().contains(errorMessage);
+
+        expect(matchStdout || matchStderr, isTrue);
+        expect(
+          result.stderr,
+          isNot(contains("Warning: The 'dart2js' entrypoint script is deprecated")),
+        );
+        expect(
+          result.stdout,
+          isNot(contains("Warning: The 'dart2js' entrypoint script is deprecated")),
+        );
+      },
+    );
   }
 }

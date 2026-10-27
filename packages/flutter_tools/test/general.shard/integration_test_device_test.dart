@@ -2,47 +2,37 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
+import 'dart:async';
 
+import 'package:dds/dds_launcher.dart';
+import 'package:file/file.dart';
+import 'package:flutter_tools/src/application_package.dart';
+import 'package:flutter_tools/src/artifacts.dart';
+import 'package:flutter_tools/src/base/dds.dart';
 import 'package:flutter_tools/src/base/io.dart' as io;
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/device.dart';
+import 'package:flutter_tools/src/project.dart';
 import 'package:flutter_tools/src/test/integration_test_device.dart';
 import 'package:flutter_tools/src/test/test_device.dart';
+import 'package:flutter_tools/src/version.dart';
 import 'package:flutter_tools/src/vmservice.dart';
+import 'package:stream_channel/stream_channel.dart';
+import 'package:test/fake.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 
 import '../src/context.dart';
 import '../src/fake_devices.dart';
 import '../src/fake_vm_services.dart';
+import '../src/fakes.dart';
 
-final Map<String, Object> vm = <String, dynamic>{
-  'isolates': <dynamic>[
-    <String, dynamic>{
-      'type': '@Isolate',
-      'fixedId': true,
-      'id': 'isolates/242098474',
-      'name': 'main.dart:main()',
-      'number': 242098474,
-    },
-  ],
-};
-
-final vm_service.Isolate isolate = vm_service.Isolate(
+final isolate = vm_service.Isolate(
   id: '1',
-  pauseEvent: vm_service.Event(
-      kind: vm_service.EventKind.kResume,
-      timestamp: 0
-  ),
+  pauseEvent: vm_service.Event(kind: vm_service.EventKind.kResume, timestamp: 0),
   breakpoints: <vm_service.Breakpoint>[],
-  exceptionPauseMode: null,
   libraries: <vm_service.LibraryRef>[
-    vm_service.LibraryRef(
-      id: '1',
-      uri: 'file:///hello_world/main.dart',
-      name: '',
-    ),
+    vm_service.LibraryRef(id: '1', uri: 'file:///hello_world/main.dart', name: ''),
   ],
   livePorts: 0,
   name: 'test',
@@ -55,25 +45,21 @@ final vm_service.Isolate isolate = vm_service.Isolate(
   extensionRPCs: <String>[kIntegrationTestMethod],
 );
 
-final FlutterView fakeFlutterView = FlutterView(
-  id: 'a',
-  uiIsolate: isolate,
-);
+final fakeFlutterView = FlutterView(id: 'a', uiIsolate: isolate);
 
-final FakeVmServiceRequest listViewsRequest = FakeVmServiceRequest(
+final listViewsRequest = FakeVmServiceRequest(
   method: kListViewsMethod,
   jsonResponse: <String, Object>{
-    'views': <Object>[
-      fakeFlutterView.toJson(),
-    ],
+    'views': <Object>[fakeFlutterView.toJson()],
   },
 );
 
-final Uri observatoryUri = Uri.parse('http://localhost:1234');
+final Uri vmServiceUri = Uri.parse('http://localhost:1234');
 
 void main() {
-  FakeVmServiceHost fakeVmServiceHost;
-  TestDevice testDevice;
+  late FakeVmServiceHost fakeVmServiceHost;
+  late TestDevice testDevice;
+  late DDSLauncherCallback originalDdsLauncher;
 
   setUp(() {
     testDevice = IntegrationTestTestDevice(
@@ -82,133 +68,488 @@ void main() {
         'ephemeral',
         'ephemeral',
         type: PlatformType.android,
-        launchResult: LaunchResult.succeeded(observatoryUri: observatoryUri),
+        launchResult: LaunchResult.succeeded(vmServiceUri: vmServiceUri),
       ),
-      debuggingOptions: DebuggingOptions.enabled(
-        BuildInfo.debug,
-      ),
+      debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
       userIdentifier: '',
+      compileExpression: null,
+      toolContext: FakeToolContext(artifacts: Artifacts.test()),
     );
 
-    fakeVmServiceHost = FakeVmServiceHost(requests: <VmServiceExpectation>[
-      const FakeVmServiceRequest(
-        method: 'streamListen',
-        args: <String, Object>{
-          'streamId': 'Isolate',
-        },
-      ),
-      listViewsRequest,
-      FakeVmServiceRequest(
-        method: 'getIsolate',
-        jsonResponse: isolate.toJson(),
-        args: <String, Object>{
-          'isolateId': '1',
-        },
-      ),
-      const FakeVmServiceRequest(
-        method: 'streamCancel',
-        args: <String, Object>{
-          'streamId': 'Isolate',
-        },
-      ),
-      const FakeVmServiceRequest(
-        method: 'streamListen',
-        args: <String, Object>{
-          'streamId': 'Extension',
-        },
-      ),
-    ]);
+    fakeVmServiceHost = FakeVmServiceHost(
+      requests: <VmServiceExpectation>[
+        const FakeVmServiceRequest(
+          method: 'streamListen',
+          args: <String, Object>{'streamId': 'Isolate'},
+        ),
+        listViewsRequest,
+        FakeVmServiceRequest(
+          method: 'getIsolate',
+          jsonResponse: isolate.toJson(),
+          args: <String, Object>{'isolateId': '1'},
+        ),
+        const FakeVmServiceRequest(
+          method: 'streamListen',
+          args: <String, Object>{'streamId': 'Extension'},
+        ),
+      ],
+    );
+
+    originalDdsLauncher = ddsLauncherCallback;
+    ddsLauncherCallback =
+        ({
+          required Uri remoteVmServiceUri,
+          String? appName = 'Fake App',
+          Uri? serviceUri,
+          bool enableAuthCodes = true,
+          bool serveDevTools = false,
+          Uri? devToolsServerAddress,
+          bool enableServicePortFallback = false,
+          List<String> cachedUserTags = const <String>[],
+          String? dartExecutable,
+          String? google3WorkspaceRoot,
+        }) async {
+          expect(appName, contains('Kind: Flutter'));
+          expect(appName, contains('Device: ephemeral'));
+          expect(appName, contains('Package: Fake Integration Test Package'));
+          return FakeDartDevelopmentServiceLauncher(uri: Uri.parse('http://localhost:1234'));
+        };
   });
 
-  testUsingContext('Can start the entrypoint', () async {
-    await testDevice.start('entrypointPath');
-
-    expect(await testDevice.observatoryUri, observatoryUri);
-    expect(testDevice.finished, doesNotComplete);
-  }, overrides: <Type, Generator>{
-    VMServiceConnector: () => (Uri httpUri, {
-      ReloadSources reloadSources,
-      Restart restart,
-      CompileExpression compileExpression,
-      GetSkSLMethod getSkSLMethod,
-      PrintStructuredErrorLogMethod printStructuredErrorLogMethod,
-      io.CompressionOptions compression,
-      Device device,
-      Logger logger,
-    }) async => fakeVmServiceHost.vmService,
+  tearDown(() {
+    ddsLauncherCallback = originalDdsLauncher;
   });
 
-  testUsingContext('Can kill the started device', () async {
-    await testDevice.start('entrypointPath');
-    await testDevice.kill();
-
-    expect(testDevice.finished, completes);
-  }, overrides: <Type, Generator>{
-    VMServiceConnector: () => (Uri httpUri, {
-      ReloadSources reloadSources,
-      Restart restart,
-      CompileExpression compileExpression,
-      GetSkSLMethod getSkSLMethod,
-      PrintStructuredErrorLogMethod printStructuredErrorLogMethod,
-      io.CompressionOptions compression,
-      Device device,
-      Logger logger,
-    }) async => fakeVmServiceHost.vmService,
+  testUsingContext('will not start when package missing', () async {
+    await expectLater(
+      testDevice.start('entrypointPath'),
+      throwsA(
+        isA<TestDeviceException>().having(
+          (Exception e) => e.toString(),
+          'description',
+          contains('No application found for TargetPlatform.android_arm'),
+        ),
+      ),
+    );
   });
 
-  testUsingContext('when the device starts without providing an observatory URI', () async {
-    final TestDevice testDevice = IntegrationTestTestDevice(
-      id: 1,
-      device: FakeDevice(
+  testUsingContext(
+    'Can start the entrypoint',
+    () async {
+      await testDevice.start('entrypointPath');
+
+      expect(await testDevice.vmServiceUri, vmServiceUri);
+      expect(testDevice.finished, doesNotComplete);
+    },
+    overrides: <Type, Generator>{
+      ApplicationPackageFactory: () => FakeApplicationPackageFactory(),
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+            Logger? logger,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  testUsingContext(
+    'Can kill the started device',
+    () async {
+      await testDevice.start('entrypointPath');
+      await testDevice.kill();
+
+      expect(testDevice.finished, completes);
+    },
+    overrides: <Type, Generator>{
+      ApplicationPackageFactory: () => FakeApplicationPackageFactory(),
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+            Logger? logger,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  testUsingContext(
+    'kill() completes and logs warning when DDS shutdown times out',
+    () async {
+      final TestDevice localTestDevice = IntegrationTestTestDevice(
+        id: 1,
+        device: FakeDevice(
+          'ephemeral',
+          'ephemeral',
+          type: PlatformType.android,
+          launchResult: LaunchResult.succeeded(vmServiceUri: vmServiceUri),
+        ),
+        debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        userIdentifier: '',
+        compileExpression: null,
+        toolContext: FakeToolContext(artifacts: Artifacts.test()),
+        ddsShutdownTimeout: const Duration(milliseconds: 10),
+      );
+
+      ddsLauncherCallback =
+          ({
+            required Uri remoteVmServiceUri,
+            String? appName = 'Fake App',
+            Uri? serviceUri,
+            bool enableAuthCodes = true,
+            bool serveDevTools = false,
+            Uri? devToolsServerAddress,
+            bool enableServicePortFallback = false,
+            List<String> cachedUserTags = const <String>[],
+            String? dartExecutable,
+            String? google3WorkspaceRoot,
+          }) async {
+            return HangingFakeDartDevelopmentServiceLauncher(
+              uri: Uri.parse('http://localhost:1234'),
+            );
+          };
+
+      await localTestDevice.start('entrypointPath');
+      await localTestDevice.kill();
+
+      expect(localTestDevice.finished, completes);
+    },
+    overrides: <Type, Generator>{
+      ApplicationPackageFactory: () => FakeApplicationPackageFactory(),
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+            Logger? logger,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  testUsingContext(
+    'when the device starts without providing an vmService URI',
+    () async {
+      final TestDevice testDevice = IntegrationTestTestDevice(
+        id: 1,
+        device: FakeDevice(
+          'ephemeral',
+          'ephemeral',
+          type: PlatformType.android,
+          launchResult: LaunchResult.succeeded(),
+        ),
+        debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        userIdentifier: '',
+        compileExpression: null,
+        toolContext: FakeToolContext(artifacts: Artifacts.test()),
+      );
+
+      expect(() => testDevice.start('entrypointPath'), throwsA(isA<TestDeviceException>()));
+    },
+    overrides: <Type, Generator>{
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  testUsingContext(
+    'when the device fails to start',
+    () async {
+      final TestDevice testDevice = IntegrationTestTestDevice(
+        id: 1,
+        device: FakeDevice(
+          'ephemeral',
+          'ephemeral',
+          type: PlatformType.android,
+          launchResult: LaunchResult.failed(),
+        ),
+        debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        userIdentifier: '',
+        compileExpression: null,
+        toolContext: FakeToolContext(artifacts: Artifacts.test()),
+      );
+
+      expect(() => testDevice.start('entrypointPath'), throwsA(isA<TestDeviceException>()));
+    },
+    overrides: <Type, Generator>{
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  testUsingContext(
+    'kill() calls uninstallApp when uninstallApp is true',
+    () async {
+      final trackingDevice = FakeDeviceTrackingUninstall();
+      final testDeviceWithUninstall = IntegrationTestTestDevice(
+        id: 1,
+        device: trackingDevice,
+        debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        userIdentifier: '',
+        compileExpression: null,
+        toolContext: FakeToolContext(artifacts: Artifacts.test()),
+      );
+
+      await testDeviceWithUninstall.start('entrypointPath');
+      await testDeviceWithUninstall.kill();
+
+      expect(trackingDevice.uninstallAppCalled, isTrue);
+      expect(testDeviceWithUninstall.finished, completes);
+    },
+    overrides: <Type, Generator>{
+      ApplicationPackageFactory: () => FakeApplicationPackageFactory(),
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+            Logger? logger,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  testUsingContext(
+    'kill() does not call uninstallApp when uninstallApp is false',
+    () async {
+      final trackingDevice = FakeDeviceTrackingUninstall();
+      final testDeviceWithoutUninstall = IntegrationTestTestDevice(
+        id: 1,
+        device: trackingDevice,
+        debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug, uninstallApp: false),
+        userIdentifier: '',
+        compileExpression: null,
+        toolContext: FakeToolContext(artifacts: Artifacts.test()),
+      );
+
+      await testDeviceWithoutUninstall.start('entrypointPath');
+      await testDeviceWithoutUninstall.kill();
+
+      expect(trackingDevice.uninstallAppCalled, isFalse);
+      expect(testDeviceWithoutUninstall.finished, completes);
+    },
+    overrides: <Type, Generator>{
+      ApplicationPackageFactory: () => FakeApplicationPackageFactory(),
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+            Logger? logger,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  testUsingContext(
+    'Can handle closing of the VM service',
+    () async {
+      final StreamChannel<String> channel = await testDevice.start('entrypointPath');
+      await fakeVmServiceHost.vmService.dispose();
+      expect(await channel.stream.isEmpty, true);
+    },
+    overrides: <Type, Generator>{
+      ApplicationPackageFactory: () => FakeApplicationPackageFactory(),
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+            Logger? logger,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+
+  // Regression test for https://github.com/flutter/flutter/issues/192470.
+  testUsingContext(
+    'waits for the UI isolate to reach PauseStart when startPaused is true',
+    () async {
+      final vm_service.Isolate unpausedIsolate = vm_service.Isolate.parse(
+        isolate.toJson()
+          ..['pauseEvent'] = vm_service.Event(
+            kind: vm_service.EventKind.kNone,
+            timestamp: 0,
+          ).toJson(),
+      )!;
+      fakeVmServiceHost = FakeVmServiceHost(
+        requests: <VmServiceExpectation>[
+          const FakeVmServiceRequest(
+            method: 'streamListen',
+            args: <String, Object>{'streamId': 'Debug'},
+          ),
+          listViewsRequest,
+          FakeVmServiceRequest(
+            method: 'getIsolate',
+            jsonResponse: unpausedIsolate.toJson(),
+            args: <String, Object>{'isolateId': '1'},
+          ),
+          FakeVmServiceStreamResponse(
+            streamId: 'Debug',
+            event: vm_service.Event(
+              kind: vm_service.EventKind.kPauseStart,
+              isolate: isolate,
+              timestamp: 1,
+            ),
+          ),
+          const FakeVmServiceRequest(
+            method: 'streamListen',
+            args: <String, Object>{'streamId': 'Isolate'},
+          ),
+          listViewsRequest,
+          FakeVmServiceRequest(
+            method: 'getIsolate',
+            jsonResponse: isolate.toJson(),
+            args: <String, Object>{'isolateId': '1'},
+          ),
+          const FakeVmServiceRequest(
+            method: 'streamListen',
+            args: <String, Object>{'streamId': 'Extension'},
+          ),
+        ],
+      );
+      final TestDevice startPausedDevice = IntegrationTestTestDevice(
+        id: 1,
+        device: FakeDevice(
+          'ephemeral',
+          'ephemeral',
+          type: PlatformType.android,
+          launchResult: LaunchResult.succeeded(vmServiceUri: vmServiceUri),
+        ),
+        debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug, startPaused: true),
+        userIdentifier: '',
+        compileExpression: null,
+        toolContext: FakeToolContext(artifacts: Artifacts.test()),
+      );
+
+      await startPausedDevice.start('entrypointPath');
+
+      expect(await startPausedDevice.vmServiceUri, vmServiceUri);
+      expect(fakeVmServiceHost.hasRemainingExpectations, isFalse);
+    },
+    overrides: <Type, Generator>{
+      ApplicationPackageFactory: () => FakeApplicationPackageFactory(),
+      VMServiceConnector: () =>
+          (
+            Uri httpUri, {
+            ReloadSources? reloadSources,
+            Restart? restart,
+            CompileExpression? compileExpression,
+            FlutterProject? flutterProject,
+            FlutterVersion? flutterVersion,
+            PrintStructuredErrorLogMethod? printStructuredErrorLogMethod,
+            io.CompressionOptions? compression,
+            Device? device,
+            Logger? logger,
+          }) async => fakeVmServiceHost.vmService,
+    },
+  );
+}
+
+class FakeApplicationPackageFactory extends Fake implements ApplicationPackageFactory {
+  @override
+  Future<ApplicationPackage> getPackageForPlatform(
+    TargetPlatform platform, {
+    BuildInfo? buildInfo,
+    File? applicationBinary,
+  }) async => FakeApplicationPackage();
+}
+
+class FakeApplicationPackage extends Fake implements ApplicationPackage {
+  @override
+  String get name => 'Fake Integration Test Package';
+}
+
+class FakeDeviceTrackingUninstall extends FakeDevice {
+  FakeDeviceTrackingUninstall()
+    : super(
         'ephemeral',
         'ephemeral',
         type: PlatformType.android,
-        launchResult: LaunchResult.succeeded(observatoryUri: null),
-      ),
-      debuggingOptions: DebuggingOptions.enabled(
-        BuildInfo.debug,
-      ),
-      userIdentifier: '',
-    );
+        launchResult: LaunchResult.succeeded(vmServiceUri: vmServiceUri),
+      );
 
-    expect(() => testDevice.start('entrypointPath'), throwsA(isA<TestDeviceException>()));
-  }, overrides: <Type, Generator>{
-    VMServiceConnector: () => (Uri httpUri, {
-      ReloadSources reloadSources,
-      Restart restart,
-      CompileExpression compileExpression,
-      GetSkSLMethod getSkSLMethod,
-      PrintStructuredErrorLogMethod printStructuredErrorLogMethod,
-      io.CompressionOptions compression,
-      Device device,
-    }) async => fakeVmServiceHost.vmService,
-  });
+  bool uninstallAppCalled = false;
 
-  testUsingContext('when the device fails to start', () async {
-    final TestDevice testDevice = IntegrationTestTestDevice(
-      id: 1,
-      device: FakeDevice(
-        'ephemeral',
-        'ephemeral',
-        type: PlatformType.android,
-        launchResult: LaunchResult.failed(),
-      ),
-      debuggingOptions: DebuggingOptions.enabled(
-        BuildInfo.debug,
-      ),
-      userIdentifier: '',
-    );
+  @override
+  Future<bool> uninstallApp(ApplicationPackage app, {String? userIdentifier}) async {
+    uninstallAppCalled = true;
+    return true;
+  }
+}
 
-    expect(() => testDevice.start('entrypointPath'), throwsA(isA<TestDeviceException>()));
-  }, overrides: <Type, Generator>{
-    VMServiceConnector: () => (Uri httpUri, {
-      ReloadSources reloadSources,
-      Restart restart,
-      CompileExpression compileExpression,
-      GetSkSLMethod getSkSLMethod,
-      PrintStructuredErrorLogMethod printStructuredErrorLogMethod,
-      io.CompressionOptions compression,
-      Device device,
-    }) async => fakeVmServiceHost.vmService,
-  });
+class HangingFakeDartDevelopmentServiceLauncher extends Fake
+    implements DartDevelopmentServiceLauncher {
+  HangingFakeDartDevelopmentServiceLauncher({required this.uri});
+
+  @override
+  final Uri uri;
+
+  @override
+  Uri? get devToolsUri => null;
+
+  @override
+  Uri? get dtdUri => null;
+
+  @override
+  Future<void> get done => _completer.future;
+
+  @override
+  Future<void> shutdown() async {
+    await _completer.future;
+  }
+
+  final _completer = Completer<void>();
 }

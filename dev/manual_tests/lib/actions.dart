@@ -10,10 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 void main() {
-  runApp(const MaterialApp(
-    title: 'Actions Demo',
-    home: FocusDemo(),
-  ));
+  runApp(const MaterialApp(title: 'Actions Demo', home: FocusDemo()));
 }
 
 /// A class that can hold invocation information that an [UndoableAction] can
@@ -22,11 +19,7 @@ void main() {
 /// Instances of this class are returned from [UndoableAction]s and placed on
 /// the undo stack when they are invoked.
 class Memento extends Object with Diagnosticable {
-  const Memento({
-    required this.name,
-    required this.undo,
-    required this.redo,
-  });
+  const Memento({required this.name, required this.undo, required this.redo});
 
   /// Returns true if this Memento can be used to undo.
   ///
@@ -48,8 +41,6 @@ class Memento extends Object with Diagnosticable {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(StringProperty('name', name));
-    properties.add(FlagProperty('undo', value: undo != null, ifTrue: 'undo'));
-    properties.add(FlagProperty('redo', value: redo != null, ifTrue: 'redo'));
   }
 }
 
@@ -58,14 +49,6 @@ class Memento extends Object with Diagnosticable {
 /// An [ActionDispatcher] subclass that manages the invocation of undoable
 /// actions.
 class UndoableActionDispatcher extends ActionDispatcher implements Listenable {
-  /// Constructs a new [UndoableActionDispatcher].
-  ///
-  /// The [maxUndoLevels] argument must not be null.
-  UndoableActionDispatcher({
-    int maxUndoLevels = _defaultMaxUndoLevels,
-  })  : assert(maxUndoLevels != null),
-        _maxUndoLevels = maxUndoLevels;
-
   // A stack of actions that have been performed. The most recent action
   // performed is at the end of the list.
   final DoubleLinkedQueue<Memento> _completedActions = DoubleLinkedQueue<Memento>();
@@ -73,19 +56,12 @@ class UndoableActionDispatcher extends ActionDispatcher implements Listenable {
   // at the end of the list.
   final List<Memento> _undoneActions = <Memento>[];
 
-  static const int _defaultMaxUndoLevels = 1000;
-
   /// The maximum number of undo levels allowed.
   ///
   /// If this value is set to a value smaller than the number of completed
   /// actions, then the stack of completed actions is truncated to only include
   /// the last [maxUndoLevels] actions.
-  int get maxUndoLevels => _maxUndoLevels;
-  int _maxUndoLevels;
-  set maxUndoLevels(int value) {
-    _maxUndoLevels = value;
-    _pruneActions();
-  }
+  int get maxUndoLevels => 1000;
 
   final Set<VoidCallback> _listeners = <VoidCallback>{};
 
@@ -124,7 +100,7 @@ class UndoableActionDispatcher extends ActionDispatcher implements Listenable {
 
   // Enforces undo level limit.
   void _pruneActions() {
-    while (_completedActions.length > _maxUndoLevels) {
+    while (_completedActions.length > maxUndoLevels) {
       _completedActions.removeFirst();
     }
   }
@@ -197,7 +173,7 @@ class UndoAction extends Action<UndoIntent> {
     if (buildContext == null) {
       return false;
     }
-    final UndoableActionDispatcher manager = Actions.of(buildContext) as UndoableActionDispatcher;
+    final manager = Actions.of(buildContext) as UndoableActionDispatcher;
     return manager.canUndo;
   }
 
@@ -207,7 +183,9 @@ class UndoAction extends Action<UndoIntent> {
     if (buildContext == null) {
       return;
     }
-    final UndoableActionDispatcher manager = Actions.of(primaryFocus?.context ?? FocusDemo.appKey.currentContext!) as UndoableActionDispatcher;
+    final manager = Actions.of(
+      primaryFocus?.context ?? FocusDemo.appKey.currentContext!,
+    ) as UndoableActionDispatcher;
     manager.undo();
   }
 }
@@ -223,7 +201,7 @@ class RedoAction extends Action<RedoIntent> {
     if (buildContext == null) {
       return false;
     }
-    final UndoableActionDispatcher manager = Actions.of(buildContext) as UndoableActionDispatcher;
+    final manager = Actions.of(buildContext) as UndoableActionDispatcher;
     return manager.canRedo;
   }
 
@@ -233,39 +211,29 @@ class RedoAction extends Action<RedoIntent> {
     if (buildContext == null) {
       return this;
     }
-    final UndoableActionDispatcher manager = Actions.of(buildContext) as UndoableActionDispatcher;
+    final manager = Actions.of(buildContext) as UndoableActionDispatcher;
     manager.redo();
     return this;
   }
 }
 
 /// An action that can be undone.
-abstract class UndoableAction<T extends Intent> extends Action<T> {
-  /// The [Intent] this action was originally invoked with.
-  Intent? get invocationIntent => _invocationTag;
-  Intent? _invocationTag;
-
-  @protected
-  set invocationIntent(Intent? value) => _invocationTag = value;
-
-  @override
-  @mustCallSuper
-  void invoke(T intent) {
-    invocationIntent = intent;
-  }
-}
+abstract class UndoableAction<T extends Intent> extends Action<T> {}
 
 class UndoableFocusActionBase<T extends Intent> extends UndoableAction<T> {
   @override
   @mustCallSuper
   Memento invoke(T intent) {
-    super.invoke(intent);
     final FocusNode? previousFocus = primaryFocus;
-    return Memento(name: previousFocus!.debugLabel!, undo: () {
-      previousFocus.requestFocus();
-    }, redo: () {
-      return invoke(intent);
-    });
+    return Memento(
+      name: previousFocus!.debugLabel!,
+      undo: () {
+        previousFocus.requestFocus();
+      },
+      redo: () {
+        return invoke(intent);
+      },
+    );
   }
 }
 
@@ -298,8 +266,6 @@ class UndoablePreviousFocusAction extends UndoableFocusActionBase<PreviousFocusI
 }
 
 class UndoableDirectionalFocusAction extends UndoableFocusActionBase<DirectionalFocusIntent> {
-  TraversalDirection? direction;
-
   @override
   Memento invoke(DirectionalFocusIntent intent) {
     final Memento memento = super.invoke(intent);
@@ -310,7 +276,7 @@ class UndoableDirectionalFocusAction extends UndoableFocusActionBase<Directional
 
 /// A button class that takes focus when clicked.
 class DemoButton extends StatefulWidget {
-  const DemoButton({Key? key, required this.name}) : super(key: key);
+  const DemoButton({super.key, required this.name});
 
   final String name;
 
@@ -340,12 +306,14 @@ class _DemoButtonState extends State<DemoButton> {
     return TextButton(
       focusNode: _focusNode,
       style: ButtonStyle(
-        foregroundColor: MaterialStateProperty.all<Color>(Colors.black),
-        overlayColor: MaterialStateProperty.resolveWith<Color>((Set<MaterialState> states) {
-          if (states.contains(MaterialState.focused))
+        foregroundColor: const MaterialStatePropertyAll<Color>(Colors.black),
+        overlayColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
+          if (states.contains(WidgetState.focused)) {
             return Colors.red;
-          if (states.contains(MaterialState.hovered))
+          }
+          if (states.contains(WidgetState.hovered)) {
             return Colors.blue;
+          }
           return Colors.transparent;
         }),
       ),
@@ -356,7 +324,7 @@ class _DemoButtonState extends State<DemoButton> {
 }
 
 class FocusDemo extends StatefulWidget {
-  const FocusDemo({Key? key}) : super(key: key);
+  const FocusDemo({super.key});
 
   static GlobalKey appKey = GlobalKey();
 
@@ -415,78 +383,87 @@ class _FocusDemoState extends State<FocusDemo> {
         policy: ReadingOrderTraversalPolicy(),
         child: Shortcuts(
           shortcuts: <ShortcutActivator, Intent>{
-            SingleActivator(LogicalKeyboardKey.keyZ, meta: Platform.isMacOS, control: !Platform.isMacOS, shift: true): const RedoIntent(),
-            SingleActivator(LogicalKeyboardKey.keyZ, meta: Platform.isMacOS, control: !Platform.isMacOS): const UndoIntent(),
+            SingleActivator(
+              LogicalKeyboardKey.keyZ,
+              meta: Platform.isMacOS,
+              control: !Platform.isMacOS,
+              shift: true,
+            ): const RedoIntent(),
+            SingleActivator(
+              LogicalKeyboardKey.keyZ,
+              meta: Platform.isMacOS,
+              control: !Platform.isMacOS,
+            ): const UndoIntent(),
           },
           child: FocusScope(
             key: FocusDemo.appKey,
             debugLabel: 'Scope',
             autofocus: true,
             child: DefaultTextStyle(
-              style: textTheme.headline4!,
+              style: textTheme.headlineMedium!,
               child: Scaffold(
-                appBar: AppBar(
-                  title: const Text('Actions Demo'),
-                ),
+                appBar: AppBar(title: const Text('Actions Demo')),
                 body: Center(
-                  child: Builder(builder: (BuildContext context) {
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const <Widget>[
-                            DemoButton(name: 'One'),
-                            DemoButton(name: 'Two'),
-                            DemoButton(name: 'Three'),
-                          ],
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const <Widget>[
-                            DemoButton(name: 'Four'),
-                            DemoButton(name: 'Five'),
-                            DemoButton(name: 'Six'),
-                          ],
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const <Widget>[
-                            DemoButton(name: 'Seven'),
-                            DemoButton(name: 'Eight'),
-                            DemoButton(name: 'Nine'),
-                          ],
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: ElevatedButton(
-                                onPressed: canUndo
-                                    ? () {
-                                        Actions.invoke(context, const UndoIntent());
-                                      }
-                                    : null,
-                                child: const Text('UNDO'),
+                  child: Builder(
+                    builder: (BuildContext context) {
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              DemoButton(name: 'One'),
+                              DemoButton(name: 'Two'),
+                              DemoButton(name: 'Three'),
+                            ],
+                          ),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              DemoButton(name: 'Four'),
+                              DemoButton(name: 'Five'),
+                              DemoButton(name: 'Six'),
+                            ],
+                          ),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              DemoButton(name: 'Seven'),
+                              DemoButton(name: 'Eight'),
+                              DemoButton(name: 'Nine'),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: ElevatedButton(
+                                  onPressed: canUndo
+                                      ? () {
+                                          Actions.invoke(context, const UndoIntent());
+                                        }
+                                      : null,
+                                  child: const Text('UNDO'),
+                                ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: ElevatedButton(
-                                onPressed: canRedo
-                                    ? () {
-                                        Actions.invoke(context, const RedoIntent());
-                                      }
-                                    : null,
-                                child: const Text('REDO'),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: ElevatedButton(
+                                  onPressed: canRedo
+                                      ? () {
+                                          Actions.invoke(context, const RedoIntent());
+                                        }
+                                      : null,
+                                  child: const Text('REDO'),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  }),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
             ),

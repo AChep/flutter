@@ -5,7 +5,7 @@
 import 'package:flutter/cupertino.dart';
 
 class CupertinoTextFieldDemo extends StatefulWidget {
-  const CupertinoTextFieldDemo({Key? key}) : super(key: key);
+  const CupertinoTextFieldDemo({super.key});
 
   static const String routeName = '/cupertino/text_fields';
 
@@ -32,10 +32,7 @@ class _CupertinoTextFieldDemoState extends State<CupertinoTextFieldDemo> {
       textCapitalization: TextCapitalization.sentences,
       placeholder: 'Text Message',
       decoration: BoxDecoration(
-        border: Border.all(
-          width: 0.0,
-          color: CupertinoColors.inactiveGray,
-        ),
+        border: Border.all(width: 0.0, color: CupertinoColors.inactiveGray),
         borderRadius: BorderRadius.circular(15.0),
       ),
       maxLines: null,
@@ -56,7 +53,7 @@ class _CupertinoTextFieldDemoState extends State<CupertinoTextFieldDemo> {
       ),
       autofocus: true,
       suffixMode: OverlayVisibilityMode.editing,
-      onSubmitted: (String text)=> setState(()=> _chatTextController!.clear()),
+      onSubmitted: (String text) => setState(() => _chatTextController!.clear()),
     );
   }
 
@@ -153,7 +150,7 @@ class _CupertinoTextFieldDemoState extends State<CupertinoTextFieldDemo> {
   Widget build(BuildContext context) {
     return DefaultTextStyle(
       style: const TextStyle(
-        fontFamily: '.SF UI Text',
+        fontFamily: 'CupertinoSystemText',
         inherit: false,
         fontSize: 17.0,
         color: CupertinoColors.black,
@@ -168,6 +165,7 @@ class _CupertinoTextFieldDemoState extends State<CupertinoTextFieldDemo> {
         ),
         child: CupertinoScrollbar(
           child: ListView(
+            primary: true,
             children: <Widget>[
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0),

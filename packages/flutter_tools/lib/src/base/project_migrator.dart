@@ -16,8 +16,7 @@ abstract class ProjectMigrator {
   @protected
   final Logger logger;
 
-  /// Returns whether migration was successful or was skipped.
-  bool migrate();
+  Future<void> migrate();
 
   /// Return null if the line should be deleted.
   @protected
@@ -32,18 +31,24 @@ abstract class ProjectMigrator {
 
   @protected
   bool get migrationRequired => _migrationRequired;
-  bool _migrationRequired = false;
+  var _migrationRequired = false;
 
   @protected
   /// Calls [migrateLine] per line, then [migrateFileContents]
   /// including the line migrations.
   void processFileLines(File file) {
-    final List<String> lines = file.readAsLinesSync();
-
-    final StringBuffer newProjectContents = StringBuffer();
     final String basename = file.basename;
+    List<String> lines;
+    try {
+      lines = file.readAsLinesSync();
+    } on FileSystemException catch (e) {
+      logger.printError('Failed to read $basename during migration: $e');
+      return;
+    }
 
-    for (final String line in lines) {
+    final newProjectContents = StringBuffer();
+
+    for (final line in lines) {
       final String? newProjectLine = migrateLine(line);
       if (newProjectLine == null) {
         logger.printTrace('Migrating $basename, removing:');
@@ -61,8 +66,10 @@ abstract class ProjectMigrator {
       newProjectContents.writeln(newProjectLine);
     }
 
-    final String projectContentsWithMigratedLines = newProjectContents.toString();
-    final String projectContentsWithMigratedContents = migrateFileContents(projectContentsWithMigratedLines);
+    final projectContentsWithMigratedLines = newProjectContents.toString();
+    final String projectContentsWithMigratedContents = migrateFileContents(
+      projectContentsWithMigratedLines,
+    );
     if (projectContentsWithMigratedLines != projectContentsWithMigratedContents) {
       logger.printTrace('Migrating $basename contents');
       _migrationRequired = true;
@@ -70,7 +77,11 @@ abstract class ProjectMigrator {
 
     if (migrationRequired) {
       logger.printStatus('Upgrading $basename');
-      file.writeAsStringSync(projectContentsWithMigratedContents);
+      try {
+        file.writeAsStringSync(projectContentsWithMigratedContents);
+      } on FileSystemException catch (e) {
+        logger.printError('Failed to process/migrate $basename during migration: $e');
+      }
     }
   }
 }
@@ -80,15 +91,9 @@ class ProjectMigration {
 
   final List<ProjectMigrator> migrators;
 
-  bool run() {
+  Future<void> run() async {
     for (final ProjectMigrator migrator in migrators) {
-      if (!migrator.migrate()) {
-        // Migration failures should be more robust, with transactions and fallbacks.
-        // See https://github.com/flutter/flutter/issues/12573 and
-        // https://github.com/flutter/flutter/issues/40460
-        return false;
-      }
+      await migrator.migrate();
     }
-    return true;
   }
 }

@@ -8,14 +8,14 @@ import 'package:flutter_devicelab/framework/utils.dart';
 import 'package:flutter_devicelab/tasks/perf_tests.dart';
 
 const String kPackageName = 'com.example.macrobenchmarks';
-const String kActivityName = 'com.example.macrobenchmarks.MainActivity';
 
 class FastScrollHeavyGridViewMemoryTest extends MemoryTest {
   FastScrollHeavyGridViewMemoryTest()
-      : super(
-          '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
-          'test_memory/heavy_gridview.dart', kPackageName,
-        );
+    : super(
+        '${flutterDirectory.path}/dev/benchmarks/macrobenchmarks',
+        'test_memory/heavy_gridview.dart',
+        kPackageName,
+      );
 
   @override
   AndroidDevice? get device => super.device as AndroidDevice?;

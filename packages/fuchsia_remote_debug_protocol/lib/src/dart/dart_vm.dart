@@ -28,33 +28,31 @@ RpcPeerConnectionFunction fuchsiaVmServiceConnectionFunction = _waitAndConnect;
 /// Attempts to connect to a Dart VM service.
 ///
 /// Gives up after `timeout` has elapsed.
-Future<vms.VmService> _waitAndConnect(
-  Uri uri, {
-  Duration timeout = _kConnectTimeout,
-}) async {
-  int attempts = 0;
+Future<vms.VmService> _waitAndConnect(Uri uri, {Duration timeout = _kConnectTimeout}) async {
+  var attempts = 0;
   late WebSocket socket;
   while (true) {
     try {
       socket = await WebSocket.connect(uri.toString());
-      final StreamController<dynamic> controller = StreamController<dynamic>();
-      final Completer<void> streamClosedCompleter = Completer<void>();
+      final controller = StreamController<dynamic>();
+      final streamClosedCompleter = Completer<void>();
       socket.listen(
         (dynamic data) => controller.add(data),
         onDone: () => streamClosedCompleter.complete(),
       );
-      final vms.VmService service = vms.VmService(
+      final service = vms.VmService(
         controller.stream,
         socket.add,
-        log: null,
         disposeHandler: () => socket.close(),
-        streamClosed: streamClosedCompleter.future
+        streamClosed: streamClosedCompleter.future,
       );
       // This call is to ensure we are able to establish a connection instead of
       // keeping on trucking and failing farther down the process.
       await service.getVersion();
       return service;
     } catch (e) {
+      // We should not be catching all errors arbitrarily here, this might hide real errors.
+      // TODO(ianh): Determine which exceptions to catch here.
       await socket.close();
       if (attempts > 5) {
         _log.warning('It is taking an unusually long time to connect to the VM...');
@@ -89,8 +87,7 @@ class RpcFormatError extends Error {
 
 /// Handles JSON RPC-2 communication with a Dart VM service.
 ///
-/// Either wraps existing RPC calls to the Dart VM service, or runs raw RPC
-/// function calls via [invokeRpc].
+/// Wraps existing RPC calls to the Dart VM service.
 class DartVm {
   DartVm._(this._vmService, this.uri);
 
@@ -102,10 +99,7 @@ class DartVm {
   /// Attempts to connect to the given [Uri].
   ///
   /// Throws an error if unable to connect.
-  static Future<DartVm> connect(
-    Uri uri, {
-    Duration timeout = _kConnectTimeout,
-  }) async {
+  static Future<DartVm> connect(Uri uri, {Duration timeout = _kConnectTimeout}) async {
     if (uri.scheme == 'http') {
       uri = uri.replace(scheme: 'ws', path: '/ws');
     }
@@ -121,7 +115,7 @@ class DartVm {
   /// matching unintended isolates.
   Future<List<IsolateRef>> getMainIsolatesByPattern(Pattern pattern) async {
     final vms.VM vmRef = await _vmService.getVM();
-    final List<IsolateRef> result = <IsolateRef>[];
+    final result = <IsolateRef>[];
     for (final vms.IsolateRef isolateRef in vmRef.isolates!) {
       if (pattern.matchAsPrefix(isolateRef.name!) != null) {
         _log.fine('Found Isolate matching "$pattern": "${isolateRef.name}"');
@@ -131,7 +125,6 @@ class DartVm {
     return result;
   }
 
-
   /// Returns a list of [FlutterView] objects running across all Dart VM's.
   ///
   /// If there is no associated isolate with the flutter view (used to determine
@@ -139,9 +132,10 @@ class DartVm {
   /// instead. If none of these things can be found (isolate has no name or the
   /// flutter view has no ID), then the result will not be added to the list.
   Future<List<FlutterView>> getAllFlutterViews() async {
-    final List<FlutterView> views = <FlutterView>[];
+    final views = <FlutterView>[];
     final vms.Response rpcResponse = await _vmService.callMethod('_flutter.listViews');
-    for (final Map<String, dynamic> jsonView in (rpcResponse.json!['views'] as List<dynamic>).cast<Map<String, dynamic>>()) {
+    for (final Map<String, dynamic> jsonView
+        in (rpcResponse.json!['views'] as List<dynamic>).cast<Map<String, dynamic>>()) {
       views.add(FlutterView._fromJson(jsonView));
     }
     return views;
@@ -175,12 +169,11 @@ class FlutterView {
   /// All other cases return a [FlutterView] instance. The name of the
   /// view may be null, but the id will always be set.
   factory FlutterView._fromJson(Map<String, dynamic> json) {
-    final Map<String, dynamic>? isolate = json['isolate'] as Map<String, dynamic>?;
-    final String? id = json['id'] as String?;
+    final isolate = json['isolate'] as Map<String, dynamic>?;
+    final id = json['id'] as String?;
     String? name;
     if (id == null) {
-      throw RpcFormatError(
-          'Unable to find view name for the following JSON structure "$json"');
+      throw RpcFormatError('Unable to find view name for the following JSON structure "$json"');
     }
     if (isolate != null) {
       name = isolate['name'] as String?;
@@ -210,7 +203,7 @@ class FlutterView {
 /// This is a wrapper class for the `@Isolate` RPC object.
 ///
 /// See:
-/// https://github.com/dart-lang/sdk/blob/master/runtime/vm/service/service.md#isolate
+/// https://github.com/dart-lang/sdk/blob/main/runtime/vm/service/service.md#isolate
 ///
 /// This class contains information about the Isolate like its name and ID, as
 /// well as a reference to the parent DartVM on which it is running.
@@ -218,9 +211,9 @@ class IsolateRef {
   IsolateRef._(this.name, this.number, this.dartVm);
 
   factory IsolateRef._fromJson(Map<String, dynamic> json, DartVm dartVm) {
-    final String? number = json['number'] as String?;
-    final String? name = json['name'] as String?;
-    final String? type = json['type'] as String?;
+    final number = json['number'] as String?;
+    final name = json['name'] as String?;
+    final type = json['type'] as String?;
     if (type == null) {
       throw RpcFormatError('Unable to find type within JSON "$json"');
     }
@@ -228,12 +221,10 @@ class IsolateRef {
       throw RpcFormatError('Type "$type" does not match for IsolateRef');
     }
     if (number == null) {
-      throw RpcFormatError(
-          'Unable to find number for isolate ref within JSON "$json"');
+      throw RpcFormatError('Unable to find number for isolate ref within JSON "$json"');
     }
     if (name == null) {
-      throw RpcFormatError(
-          'Unable to find name for isolate ref within JSON "$json"');
+      throw RpcFormatError('Unable to find name for isolate ref within JSON "$json"');
     }
     return IsolateRef._(name, int.parse(number), dartVm);
   }

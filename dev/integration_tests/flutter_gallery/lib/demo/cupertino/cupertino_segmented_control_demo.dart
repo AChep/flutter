@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 
 import '../../gallery/demo.dart';
 
@@ -12,7 +11,7 @@ const Color _kKeyPenumbraOpacity = Color(0x24000000); // alpha = 0.14
 const Color _kAmbientShadowOpacity = Color(0x1F000000); // alpha = 0.12
 
 class CupertinoSegmentedControlDemo extends StatefulWidget {
-  const CupertinoSegmentedControlDemo({Key? key}) : super(key: key);
+  const CupertinoSegmentedControlDemo({super.key});
 
   static const String routeName = 'cupertino/segmented_control';
 
@@ -28,21 +27,9 @@ class _CupertinoSegmentedControlDemoState extends State<CupertinoSegmentedContro
   };
 
   final Map<int, Widget> icons = const <int, Widget>{
-    0: Center(
-      child: FlutterLogo(
-        size: 100.0,
-      ),
-    ),
-    1: Center(
-      child: FlutterLogo(
-        size: 200.0,
-      ),
-    ),
-    2: Center(
-      child: FlutterLogo(
-        size: 300.0,
-      ),
-    ),
+    0: Center(child: FlutterLogo(size: 100.0)),
+    1: Center(child: FlutterLogo(size: 200.0)),
+    2: Center(child: FlutterLogo(size: 300.0)),
   };
 
   int? currentSegment = 0;
@@ -91,19 +78,13 @@ class _CupertinoSegmentedControlDemoState extends State<CupertinoSegmentedContro
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 32.0,
-                    horizontal: 16.0,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0),
                   child: CupertinoUserInterfaceLevel(
                     data: CupertinoUserInterfaceLevelData.elevated,
                     child: Builder(
                       builder: (BuildContext context) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 64.0,
-                            horizontal: 16.0,
-                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 64.0, horizontal: 16.0),
                           decoration: BoxDecoration(
                             color: CupertinoTheme.of(context).scaffoldBackgroundColor,
                             borderRadius: BorderRadius.circular(3.0),
@@ -117,13 +98,11 @@ class _CupertinoSegmentedControlDemoState extends State<CupertinoSegmentedContro
                               BoxShadow(
                                 offset: Offset(0.0, 6.0),
                                 blurRadius: 10.0,
-                                spreadRadius: 0.0,
                                 color: _kKeyPenumbraOpacity,
                               ),
                               BoxShadow(
                                 offset: Offset(0.0, 1.0),
                                 blurRadius: 18.0,
-                                spreadRadius: 0.0,
                                 color: _kAmbientShadowOpacity,
                               ),
                             ],

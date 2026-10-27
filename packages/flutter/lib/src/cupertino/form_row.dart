@@ -2,14 +2,16 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'form_section.dart';
+library;
+
 import 'package:flutter/widgets.dart';
 
 import 'colors.dart';
 import 'theme.dart';
 
 // Content padding determined via SwiftUI's `Form` view in the iOS 14.2 SDK.
-const EdgeInsetsGeometry _kDefaultPadding =
-    EdgeInsetsDirectional.fromSTEB(20.0, 6.0, 6.0, 6.0);
+const EdgeInsetsGeometry _kDefaultPadding = EdgeInsetsDirectional.fromSTEB(20.0, 6.0, 6.0, 6.0);
 
 /// An iOS-style form row.
 ///
@@ -34,50 +36,13 @@ const EdgeInsetsGeometry _kDefaultPadding =
 /// be shown in [CupertinoColors.destructiveRed] coloring and
 /// medium-weighted font.
 ///
-/// {@tool snippet}
+/// {@tool dartpad}
+/// Creates a [CupertinoFormSection] containing a [CupertinoFormRow] with [prefix],
+/// [child], [helper] and [error] specified.
 ///
-/// Creates a [CupertinoFormSection] containing a [CupertinoFormRow] with the
-/// [prefix], [child], [helper] and [error] widgets.
-///
-/// ```dart
-/// class FlutterDemo extends StatefulWidget {
-///   const FlutterDemo({Key? key}) : super(key: key);
-///
-///   @override
-///   State<FlutterDemo> createState() => _FlutterDemoState();
-/// }
-///
-/// class _FlutterDemoState extends State<FlutterDemo> {
-///   bool toggleValue = false;
-///
-///   @override
-///   Widget build(BuildContext context) {
-///     return CupertinoPageScaffold(
-///       child: Center(
-///         child: CupertinoFormSection(
-///           header: const Text('SECTION 1'),
-///           children: <Widget>[
-///             CupertinoFormRow(
-///               child: CupertinoSwitch(
-///                 value: toggleValue,
-///                 onChanged: (bool value) {
-///                   setState(() {
-///                     toggleValue = value;
-///                   });
-///                 },
-///               ),
-///               prefix: const Text('Toggle'),
-///               helper: const Text('Use your instincts'),
-///               error: toggleValue ? const Text('Cannot be true') : null,
-///             ),
-///           ],
-///         ),
-///       ),
-///     );
-///   }
-/// }
-/// ```
+/// ** See code in examples/api/lib/cupertino/form_row/cupertino_form_row.0.dart **
 /// {@end-tool}
+///
 class CupertinoFormRow extends StatelessWidget {
   /// Creates an iOS-style split form row with a standard prefix and child widget.
   /// Also provides a space for error and helper widgets that appear underneath.
@@ -100,13 +65,13 @@ class CupertinoFormRow extends StatelessWidget {
   /// be shown in [CupertinoColors.destructiveRed] coloring and
   /// medium-weighted font.
   const CupertinoFormRow({
-    Key? key,
+    super.key,
     required this.child,
     this.prefix,
     this.padding,
     this.helper,
     this.error,
-  }) : super(key: key);
+  });
 
   /// A widget that is displayed at the start of the row.
   ///
@@ -148,7 +113,10 @@ class CupertinoFormRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle textStyle = CupertinoTheme.of(context).textTheme.textStyle;
+    final CupertinoThemeData theme = CupertinoTheme.of(context);
+    final TextStyle textStyle = theme.textTheme.textStyle.copyWith(
+      color: CupertinoDynamicColor.maybeResolve(theme.textTheme.textStyle.color, context),
+    );
 
     return Padding(
       padding: padding ?? _kDefaultPadding,
@@ -157,26 +125,16 @@ class CupertinoFormRow extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: <Widget>[
-              if (prefix != null)
-                DefaultTextStyle(
-                  style: textStyle,
-                  child: prefix!,
-                ),
+              if (prefix != null) DefaultTextStyle(style: textStyle, child: prefix!),
               Flexible(
-                child: Align(
-                  alignment: AlignmentDirectional.centerEnd,
-                  child: child,
-                ),
+                child: Align(alignment: AlignmentDirectional.centerEnd, child: child),
               ),
             ],
           ),
           if (helper != null)
             Align(
               alignment: AlignmentDirectional.centerStart,
-              child: DefaultTextStyle(
-                style: textStyle,
-                child: helper!,
-              ),
+              child: DefaultTextStyle(style: textStyle, child: helper!),
             ),
           if (error != null)
             Align(

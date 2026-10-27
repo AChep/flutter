@@ -26,40 +26,37 @@ import '../material_localizations.dart';
 //
 // These classes are constructed by the [getMaterialTranslation] method at the
 // bottom of this file, and used by the [_MaterialLocalizationsDelegate.load]
-// method defined in `flutter_localizations/lib/src/material_localizations.dart`.''';
+// method defined in `flutter_localizations/lib/src/material_localizations.dart`.
+
+// TODO(goderbauer): Extend the generator to properly format the output.
+// dart format off''';
 }
 
 /// Returns the source of the constructor for a GlobalMaterialLocalizations
 /// subclass.
 String generateMaterialConstructor(LocaleInfo locale) {
   final String localeName = locale.originalString;
+  final className = 'MaterialLocalization${locale.camelCase()}';
   return '''
   /// Create an instance of the translation bundle for ${describeLocale(localeName)}.
   ///
   /// For details on the meaning of the arguments, see [GlobalMaterialLocalizations].
-  const MaterialLocalization${locale.camelCase()}({
-    String localeName = '$localeName',
-    required intl.DateFormat fullYearFormat,
-    required intl.DateFormat compactDateFormat,
-    required intl.DateFormat shortDateFormat,
-    required intl.DateFormat mediumDateFormat,
-    required intl.DateFormat longDateFormat,
-    required intl.DateFormat yearMonthFormat,
-    required intl.DateFormat shortMonthDayFormat,
-    required intl.NumberFormat decimalFormat,
-    required intl.NumberFormat twoDigitZeroPaddedFormat,
-  }) : super(
-    localeName: localeName,
-    fullYearFormat: fullYearFormat,
-    compactDateFormat: compactDateFormat,
-    shortDateFormat: shortDateFormat,
-    mediumDateFormat: mediumDateFormat,
-    longDateFormat: longDateFormat,
-    yearMonthFormat: yearMonthFormat,
-    shortMonthDayFormat: shortMonthDayFormat,
-    decimalFormat: decimalFormat,
-    twoDigitZeroPaddedFormat: twoDigitZeroPaddedFormat,
-  );''';
+  @Deprecated(
+    'Use $className from package:material_ui/material_ui.dart instead. '
+    'This feature was deprecated after v3.47.0-0.0.pre.',
+  )
+  const $className({
+    super.localeName = '$localeName',
+    required super.fullYearFormat,
+    required super.compactDateFormat,
+    required super.shortDateFormat,
+    required super.mediumDateFormat,
+    required super.longDateFormat,
+    required super.yearMonthFormat,
+    required super.shortMonthDayFormat,
+    required super.decimalFormat,
+    required super.twoDigitZeroPaddedFormat,
+  });''';
 }
 
 const String materialFactoryName = 'getMaterialTranslation';

@@ -2,175 +2,243 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:microbenchmarks/common.dart';
 
 List<Object?> _makeTestBuffer(int size) {
-  final List<Object?> answer = <Object?>[];
-  for (int i = 0; i < size; ++i) {
-    switch (i % 9) {
-      case 0:
-        answer.add(1);
-        break;
-      case 1:
-        answer.add(math.pow(2, 65));
-        break;
-      case 2:
-        answer.add(1234.0);
-        break;
-      case 3:
-        answer.add(null);
-        break;
-      case 4:
-        answer.add(<int>[1234]);
-        break;
-      case 5:
-        answer.add(<String, int>{'hello': 1234});
-        break;
-      case 6:
-        answer.add('this is a test');
-        break;
-      case 7:
-        answer.add(true);
-        break;
-      case 8:
-        answer.add(Uint8List(64));
-        break;
-    }
-  }
-  return answer;
+  return <Object?>[
+    for (int i = 0; i < size; i++)
+      switch (i % 9) {
+        0 => 1,
+        1 => math.pow(2, 65),
+        2 => 1234.0,
+        3 => null,
+        4 => <int>[1234],
+        5 => <String, int>{'hello': 1234},
+        6 => 'this is a test',
+        7 => true,
+        _ => Uint8List(64),
+      },
+  ];
 }
 
-Future<double> _runBasicStandardSmall(
-    BasicMessageChannel<Object?> basicStandard, int count) async {
-  final Stopwatch watch = Stopwatch();
+Future<double> _runBasicStandardSmall(BasicMessageChannel<Object?> basicStandard, int count) async {
+  final watch = Stopwatch();
   watch.start();
-  for (int i = 0; i < count; ++i) {
+  for (var i = 0; i < count; ++i) {
     await basicStandard.send(1234);
   }
   watch.stop();
   return watch.elapsedMicroseconds / count;
 }
 
-Future<double> _runBasicStandardLarge(BasicMessageChannel<Object?> basicStandard,
-    List<Object?> largeBuffer, int count) async {
-  int size = 0;
-  final Stopwatch watch = Stopwatch();
+class _Counter {
+  int count = 0;
+}
+
+void _runBasicStandardParallelRecurse(
+  BasicMessageChannel<Object?> basicStandard,
+  _Counter counter,
+  int count,
+  Completer<int> completer,
+  Object? payload,
+) {
+  counter.count += 1;
+  if (counter.count == count) {
+    completer.complete(counter.count);
+  } else if (counter.count < count) {
+    basicStandard.send(payload).then((Object? result) {
+      _runBasicStandardParallelRecurse(basicStandard, counter, count, completer, payload);
+    });
+  }
+}
+
+Future<double> _runBasicStandardParallel(
+  BasicMessageChannel<Object?> basicStandard,
+  int count,
+  Object? payload,
+  int parallel,
+) async {
+  final watch = Stopwatch();
+  final completer = Completer<int>();
+  final counter = _Counter();
   watch.start();
-  for (int i = 0; i < count; ++i) {
-    final List<Object?>? result =
-        await basicStandard.send(largeBuffer) as List<Object?>?;
+  for (var i = 0; i < parallel; ++i) {
+    // ignore: unawaited_futures
+    basicStandard.send(payload).then((Object? result) {
+      _runBasicStandardParallelRecurse(basicStandard, counter, count, completer, payload);
+    });
+  }
+  await completer.future;
+  watch.stop();
+  return watch.elapsedMicroseconds / count;
+}
+
+Future<double> _runBasicStandardLarge(
+  BasicMessageChannel<Object?> basicStandard,
+  List<Object?> largeBuffer,
+  int count,
+) async {
+  var size = 0;
+  final watch = Stopwatch();
+  watch.start();
+  for (var i = 0; i < count; ++i) {
+    final result = await basicStandard.send(largeBuffer) as List<Object?>?;
     // This check should be tiny compared to the actual channel send/receive.
     size += (result == null) ? 0 : result.length;
   }
   watch.stop();
 
   if (size != largeBuffer.length * count) {
-    throw Exception(
-      "There is an error with the echo channel, the results don't add up: $size",
-    );
+    throw Exception("There is an error with the echo channel, the results don't add up: $size");
   }
 
   return watch.elapsedMicroseconds / count;
 }
 
-Future<double> _runBasicBinary(BasicMessageChannel<ByteData> basicBinary,
-    ByteData buffer, int count) async {
-  int size = 0;
-  final Stopwatch watch = Stopwatch();
+Future<double> _runBasicBinary(
+  BasicMessageChannel<ByteData> basicBinary,
+  ByteData buffer,
+  int count,
+) async {
+  var size = 0;
+  final watch = Stopwatch();
   watch.start();
-  for (int i = 0; i < count; ++i) {
+  for (var i = 0; i < count; ++i) {
     final ByteData? result = await basicBinary.send(buffer);
     // This check should be tiny compared to the actual channel send/receive.
     size += (result == null) ? 0 : result.lengthInBytes;
   }
   watch.stop();
   if (size != buffer.lengthInBytes * count) {
-    throw Exception(
-      "There is an error with the echo channel, the results don't add up: $size",
-    );
+    throw Exception("There is an error with the echo channel, the results don't add up: $size");
   }
 
   return watch.elapsedMicroseconds / count;
 }
 
+Future<void> _runTest({
+  required Future<double> Function(int) test,
+  required BasicMessageChannel<Object?> resetChannel,
+  required BenchmarkResultPrinter printer,
+  required String description,
+  required String name,
+  required int numMessages,
+}) async {
+  print('running $name');
+  // The native handlers for 'dev.flutter.echo.reset' in AppDelegate.m and
+  // MainActivity.kt do not invoke the reply callback, so awaiting this Future
+  // would deadlock the benchmark.
+  unawaited(resetChannel.send(true));
+  // Prime test.
+  await test(1);
+  printer.addResult(
+    description: description,
+    value: await test(numMessages),
+    unit: 'µs',
+    name: name,
+  );
+}
+
 Future<void> _runTests() async {
   if (kDebugMode) {
-    throw Exception(
-      "Must be run in profile mode! Use 'flutter run --profile'.",
-    );
+    throw Exception("Must be run in profile mode! Use 'flutter run --profile'.");
   }
 
-  const BasicMessageChannel<Object?> resetChannel = BasicMessageChannel<Object?>(
+  const resetChannel = BasicMessageChannel<Object?>(
     'dev.flutter.echo.reset',
     StandardMessageCodec(),
   );
-  const BasicMessageChannel<Object?> basicStandard = BasicMessageChannel<Object?>(
+  const basicStandard = BasicMessageChannel<Object?>(
     'dev.flutter.echo.basic.standard',
     StandardMessageCodec(),
   );
-  const BasicMessageChannel<ByteData> basicBinary =
-      BasicMessageChannel<ByteData>(
-    'dev.flutter.echo.basic.binary',
-    BinaryCodec(),
-  );
+  const basicBinary = BasicMessageChannel<ByteData>('dev.flutter.echo.basic.binary', BinaryCodec());
 
   /// WARNING: Don't change the following line of code, it will invalidate
-  /// `Large` tests.  Instead make a different test.  The size of largeBuffer
+  /// `Large` tests. Instead make a different test. The size of largeBuffer
   /// serialized is 14214 bytes.
   final List<Object?> largeBuffer = _makeTestBuffer(1000);
-  final ByteData largeBufferBytes =
-      const StandardMessageCodec().encodeMessage(largeBuffer)!;
-  final ByteData oneMB = ByteData(1024 * 1024);
+  final ByteData largeBufferBytes = const StandardMessageCodec().encodeMessage(largeBuffer)!;
+  final oneMB = ByteData(1024 * 1024);
 
-  const int numMessages = 2500;
+  const numMessages = 2500;
 
-  final BenchmarkResultPrinter printer = BenchmarkResultPrinter();
-  resetChannel.send(true);
-  await _runBasicStandardSmall(basicStandard, 1); // Warmup.
-  printer.addResult(
+  final printer = BenchmarkResultPrinter();
+  await _runTest(
+    test: (int x) => _runBasicStandardSmall(basicStandard, x),
+    resetChannel: resetChannel,
+    printer: printer,
     description: 'BasicMessageChannel/StandardMessageCodec/Flutter->Host/Small',
-    value: await _runBasicStandardSmall(basicStandard, numMessages),
-    unit: 'µs',
     name: 'platform_channel_basic_standard_2host_small',
+    numMessages: numMessages,
   );
-  resetChannel.send(true);
-  await _runBasicStandardLarge(basicStandard, largeBuffer, 1); // Warmup.
-  printer.addResult(
+  await _runTest(
+    test: (int x) => _runBasicStandardLarge(basicStandard, largeBuffer, x),
+    resetChannel: resetChannel,
+    printer: printer,
     description: 'BasicMessageChannel/StandardMessageCodec/Flutter->Host/Large',
-    value:
-        await _runBasicStandardLarge(basicStandard, largeBuffer, numMessages),
-    unit: 'µs',
     name: 'platform_channel_basic_standard_2host_large',
+    numMessages: numMessages,
   );
-  resetChannel.send(true);
-  await _runBasicBinary(basicBinary, largeBufferBytes, 1); // Warmup.
-  printer.addResult(
+  await _runTest(
+    test: (int x) => _runBasicBinary(basicBinary, largeBufferBytes, x),
+    resetChannel: resetChannel,
+    printer: printer,
     description: 'BasicMessageChannel/BinaryCodec/Flutter->Host/Large',
-    value: await _runBasicBinary(basicBinary, largeBufferBytes, numMessages),
-    unit: 'µs',
     name: 'platform_channel_basic_binary_2host_large',
+    numMessages: numMessages,
   );
-  resetChannel.send(true);
-  await _runBasicBinary(basicBinary, oneMB, 1); // Warmup.
-  printer.addResult(
+  await _runTest(
+    test: (int x) => _runBasicBinary(basicBinary, oneMB, x),
+    resetChannel: resetChannel,
+    printer: printer,
     description: 'BasicMessageChannel/BinaryCodec/Flutter->Host/1MB',
-    value: await _runBasicBinary(basicBinary, oneMB, numMessages),
-    unit: 'µs',
     name: 'platform_channel_basic_binary_2host_1MB',
+    numMessages: numMessages,
+  );
+  await _runTest(
+    test: (int x) => _runBasicStandardParallel(basicStandard, x, 1234, 3),
+    resetChannel: resetChannel,
+    printer: printer,
+    description: 'BasicMessageChannel/StandardMessageCodec/Flutter->Host/SmallParallel3',
+    name: 'platform_channel_basic_standard_2host_small_parallel_3',
+    numMessages: numMessages,
+  );
+  // Background platform channels aren't yet implemented for iOS.
+  const backgroundStandard = BasicMessageChannel<Object?>(
+    'dev.flutter.echo.background.standard',
+    StandardMessageCodec(),
+  );
+  await _runTest(
+    test: (int x) => _runBasicStandardSmall(backgroundStandard, x),
+    resetChannel: resetChannel,
+    printer: printer,
+    description: 'BasicMessageChannel/StandardMessageCodec/Flutter->Host (background)/Small',
+    name: 'platform_channel_basic_standard_2hostbackground_small',
+    numMessages: numMessages,
+  );
+  await _runTest(
+    test: (int x) => _runBasicStandardParallel(backgroundStandard, x, 1234, 3),
+    resetChannel: resetChannel,
+    printer: printer,
+    description:
+        'BasicMessageChannel/StandardMessageCodec/Flutter->Host (background)/SmallParallel3',
+    name: 'platform_channel_basic_standard_2hostbackground_small_parallel_3',
+    numMessages: numMessages,
   );
   printer.printToStdout();
+  // Signal the end of our benchmark
+  print('\n\n╡ ••• Done ••• ╞\n\n');
 }
 
 class _BenchmarkWidget extends StatefulWidget {
-  const _BenchmarkWidget(this.tests, {Key? key}) : super(key: key);
+  const _BenchmarkWidget(this.tests);
 
   final Future<void> Function() tests;
 

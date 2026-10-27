@@ -10,9 +10,7 @@ void main() {
     await tester.pumpWidget(
       const RootRestorationScope(
         restorationId: 'root-child',
-        child: _RestorableWidget(
-          restorationId: 'restorable-widget',
-        ),
+        child: _RestorableWidget(restorationId: 'restorable-widget'),
       ),
     );
 
@@ -39,9 +37,7 @@ void main() {
     await tester.pumpWidget(
       const RootRestorationScope(
         restorationId: 'root-child',
-        child: _RestorableWidget(
-          restorationId: 'restorable-widget',
-        ),
+        child: _RestorableWidget(restorationId: 'restorable-widget'),
       ),
     );
 
@@ -72,7 +68,7 @@ void main() {
 }
 
 class _RestorableWidget extends StatefulWidget {
-  const _RestorableWidget({Key? key, this.restorationId}) : super(key: key);
+  const _RestorableWidget({this.restorationId});
 
   final String? restorationId;
 
@@ -107,4 +103,11 @@ class _RestorableWidgetState extends State<_RestorableWidget> with RestorationMi
 
   @override
   String? get restorationId => widget.restorationId;
+
+  @override
+  void dispose() {
+    stringValue.dispose();
+    intValue.dispose();
+    super.dispose();
+  }
 }

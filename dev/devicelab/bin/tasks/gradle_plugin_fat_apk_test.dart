@@ -16,13 +16,7 @@ Future<void> main() async {
       await runPluginProjectTest((FlutterPluginProject pluginProject) async {
         section('APK content for task assembleDebug without explicit target platform');
         await inDirectory(pluginProject.exampleAndroidPath, () {
-          return flutter(
-            'build',
-            options: <String>[
-              'apk',
-              '--debug',
-            ],
-          );
+          return flutter('build', options: <String>['apk', '--debug']);
         });
 
         Iterable<String> apkFiles = await getFilesInApk(pluginProject.debugApkPath);
@@ -33,28 +27,20 @@ Future<void> main() async {
           ...baseApkFiles,
           'lib/armeabi-v7a/libflutter.so',
           'lib/arm64-v8a/libflutter.so',
-          // Debug mode intentionally includes `x86` and `x86_64`.
-          'lib/x86/libflutter.so',
+          // Debug mode intentionally includes `x86_64`.
           'lib/x86_64/libflutter.so',
         ], apkFiles);
 
         checkCollectionDoesNotContain<String>(<String>[
           'lib/arm64-v8a/libapp.so',
           'lib/armeabi-v7a/libapp.so',
-          'lib/x86/libapp.so',
           'lib/x86_64/libapp.so',
         ], apkFiles);
 
         section('APK content for task assembleRelease without explicit target platform');
 
         await inDirectory(pluginProject.exampleAndroidPath, () {
-          return flutter(
-            'build',
-            options: <String>[
-              'apk',
-              '--release',
-            ],
-          );
+          return flutter('build', options: <String>['apk', '--release']);
         });
 
         apkFiles = await getFilesInApk(pluginProject.releaseApkPath);
@@ -72,16 +58,14 @@ Future<void> main() async {
 
         checkCollectionDoesNotContain<String>(debugAssets, apkFiles);
 
-        section('APK content for task assembleRelease with target platform = android-arm, android-arm64');
+        section(
+          'APK content for task assembleRelease with target platform = android-arm, android-arm64',
+        );
 
         await inDirectory(pluginProject.exampleAndroidPath, () {
           return flutter(
             'build',
-            options: <String>[
-              'apk',
-              '--release',
-              '--target-platform=android-arm,android-arm64'
-            ],
+            options: <String>['apk', '--release', '--target-platform=android-arm,android-arm64'],
           );
         });
 
@@ -98,8 +82,10 @@ Future<void> main() async {
 
         checkCollectionDoesNotContain<String>(debugAssets, apkFiles);
 
-        section('APK content for task assembleRelease with '
-                'target platform = android-arm, android-arm64 and split per ABI');
+        section(
+          'APK content for task assembleRelease with '
+          'target platform = android-arm, android-arm64 and split per ABI',
+        );
 
         await inDirectory(pluginProject.exampleAndroidPath, () {
           return flutter(
@@ -124,7 +110,9 @@ Future<void> main() async {
 
         checkCollectionDoesNotContain<String>(debugAssets, armApkFiles);
 
-        final Iterable<String> arm64ApkFiles = await getFilesInApk(pluginProject.releaseArm64ApkPath);
+        final Iterable<String> arm64ApkFiles = await getFilesInApk(
+          pluginProject.releaseArm64ApkPath,
+        );
 
         checkCollectionContains<String>(<String>[
           ...flutterAssets,
@@ -140,22 +128,13 @@ Future<void> main() async {
         section('gradlew assembleRelease');
 
         await inDirectory(project.rootPath, () {
-          return flutter(
-            'build',
-            options: <String>[
-              'apk',
-              '--release',
-            ],
-          );
+          return flutter('build', options: <String>['apk', '--release']);
         });
 
         // When the platform-target isn't specified, we generate the snapshots
         // for arm and arm64.
-        final List<String> targetPlatforms = <String>[
-          'arm64-v8a',
-          'armeabi-v7a',
-        ];
-        for (final String targetPlatform in targetPlatforms) {
+        final targetPlatforms = <String>['arm64-v8a', 'armeabi-v7a'];
+        for (final targetPlatform in targetPlatforms) {
           final String androidArmSnapshotPath = path.join(
             project.rootPath,
             'build',
@@ -171,12 +150,24 @@ Future<void> main() async {
             throw TaskResult.failure("Shared library doesn't exist");
           }
         }
+
+        section('AGP cxx build artifacts');
+
+        final String defaultPath = path.join(project.rootPath, 'android', 'app', '.cxx');
+        final String modifiedPath = path.join(project.rootPath, 'build', '.cxx');
+        if (Directory(defaultPath).existsSync()) {
+          throw TaskResult.failure('Producing unexpected build artifacts in $defaultPath');
+        }
+        if (Directory(modifiedPath).existsSync()) {
+          throw TaskResult.failure('Producing unexpected build artifacts in $modifiedPath');
+        }
       });
 
       return TaskResult.success(null);
     } on TaskResult catch (taskResult) {
       return taskResult;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Task exception stack trace:\n$stackTrace');
       return TaskResult.failure(e.toString());
     }
   });

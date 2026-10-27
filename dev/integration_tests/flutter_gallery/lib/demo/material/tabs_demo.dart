@@ -12,7 +12,7 @@ import '../../gallery/demo.dart';
 const String _kGalleryAssetsPackage = 'flutter_gallery_assets';
 
 class _Page {
-  _Page({ this.label });
+  _Page({this.label});
   final String? label;
   String get id => label!.characters.first;
   @override
@@ -20,7 +20,7 @@ class _Page {
 }
 
 class _CardData {
-  const _CardData({ this.title, this.imageAsset, this.imageAssetPackage });
+  const _CardData({this.title, this.imageAsset, this.imageAssetPackage});
   final String? title;
   final String? imageAsset;
   final String? imageAssetPackage;
@@ -94,7 +94,7 @@ final Map<_Page, List<_CardData>> _allPages = <_Page, List<_CardData>>{
 };
 
 class _CardDataItem extends StatelessWidget {
-  const _CardDataItem({ this.page, this.data });
+  const _CardDataItem({this.page, this.data});
 
   static const double height = 272.0;
   final _Page? page;
@@ -107,29 +107,20 @@ class _CardDataItem extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             Align(
-              alignment: page!.id == 'H'
-                ? Alignment.centerLeft
-                : Alignment.centerRight,
+              alignment: page!.id == 'H' ? Alignment.centerLeft : Alignment.centerRight,
               child: CircleAvatar(child: Text(page!.id)),
             ),
-            SizedBox(
-              width: 144.0,
-              height: 144.0,
+            SizedBox.square(
+              dimension: 144.0,
               child: Image.asset(
                 data!.imageAsset!,
                 package: data!.imageAssetPackage,
                 fit: BoxFit.contain,
               ),
             ),
-            Center(
-              child: Text(
-                data!.title!,
-                style: Theme.of(context).textTheme.headline6,
-              ),
-            ),
+            Center(child: Text(data!.title!, style: Theme.of(context).textTheme.titleLarge)),
           ],
         ),
       ),
@@ -138,7 +129,7 @@ class _CardDataItem extends StatelessWidget {
 }
 
 class TabsDemo extends StatelessWidget {
-  const TabsDemo({Key? key}) : super(key: key);
+  const TabsDemo({super.key});
 
   static const String routeName = '/material/tabs';
 
@@ -159,9 +150,9 @@ class TabsDemo extends StatelessWidget {
                   expandedHeight: 150.0,
                   forceElevated: innerBoxIsScrolled,
                   bottom: TabBar(
-                    tabs: _allPages.keys.map<Widget>(
-                      (_Page page) => Tab(text: page.label),
-                    ).toList(),
+                    tabs: _allPages.keys
+                        .map<Widget>((_Page page) => Tab(text: page.label))
+                        .toList(),
                   ),
                 ),
               ),
@@ -181,27 +172,17 @@ class TabsDemo extends StatelessWidget {
                           handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
                         ),
                         SliverPadding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 16.0,
-                          ),
-                          sliver: SliverFixedExtentList(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                          sliver: SliverFixedExtentList.builder(
                             itemExtent: _CardDataItem.height,
-                            delegate: SliverChildBuilderDelegate(
-                              (BuildContext context, int index) {
-                                final _CardData data = _allPages[page]![index];
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8.0,
-                                  ),
-                                  child: _CardDataItem(
-                                    page: page,
-                                    data: data,
-                                  ),
-                                );
-                              },
-                              childCount: _allPages[page]!.length,
-                            ),
+                            itemCount: _allPages[page]!.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              final _CardData data = _allPages[page]![index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: _CardDataItem(page: page, data: data),
+                              );
+                            },
                           ),
                         ),
                       ],
